@@ -30,11 +30,11 @@ function formatError(msg: string): string {
   return msg;
 }
 
-function Spinner({ size = 16, dark }: { size?: number; dark?: boolean }) {
+function Spinner({ dark }: { dark?: boolean }) {
   return (
     <span style={{
-      display: 'inline-block', width: size, height: size, flexShrink: 0,
-      border: `2px solid ${dark ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.22)'}`,
+      display: 'inline-block', width: 16, height: 16, flexShrink: 0,
+      border: `2px solid ${dark ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.25)'}`,
       borderTopColor: dark ? 'rgba(0,0,0,0.55)' : 'white',
       borderRadius: '50%', animation: 'tf-spin 0.7s linear infinite',
     }} />
@@ -43,7 +43,7 @@ function Spinner({ size = 16, dark }: { size?: number; dark?: boolean }) {
 
 function GoogleIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 18 18" style={{ flexShrink: 0 }}>
+    <svg width="18" height="18" viewBox="0 0 18 18" style={{ flexShrink: 0 }}>
       <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" />
       <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" />
       <path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" />
@@ -54,7 +54,7 @@ function GoogleIcon() {
 
 function EmailIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="4" width="20" height="16" rx="2" />
       <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
     </svg>
@@ -63,7 +63,7 @@ function EmailIcon() {
 
 function LockIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
     </svg>
@@ -72,148 +72,205 @@ function LockIcon() {
 
 function EyeIcon({ open }: { open: boolean }) {
   return open ? (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
       <circle cx="12" cy="12" r="3" />
     </svg>
   ) : (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19M1 1l22 22" />
     </svg>
   );
 }
 
-const STYLES = `
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #07070f; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 
-  @keyframes tf-spin { to { transform: rotate(360deg); } }
+function ArrowIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="tf-arrow">
+      <path d="M5 12h14M12 5l7 7-7 7" />
+    </svg>
+  );
+}
+
+const STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #07070f;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  @keyframes tf-spin    { to { transform: rotate(360deg); } }
   @keyframes tf-glow-cw { to { transform: rotate(360deg); } }
   @keyframes tf-card-in {
-    from { opacity: 0; transform: translateY(24px) scale(0.97); }
+    from { opacity: 0; transform: translateY(22px) scale(0.97); }
     to   { opacity: 1; transform: translateY(0)   scale(1);    }
   }
   @keyframes tf-field-in {
-    from { opacity: 0; transform: translateY(8px); }
-    to   { opacity: 1; transform: translateY(0);   }
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0);    }
   }
   @keyframes tf-fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes tf-shimmer {
+    0%   { transform: translateX(-120%) skewX(-20deg); }
+    100% { transform: translateX(220%)  skewX(-20deg); }
+  }
+  @keyframes tf-btn-breathe {
+    0%, 100% { box-shadow: 0 2px 20px rgba(43,125,233,0.30); }
+    50%       { box-shadow: 0 4px 28px rgba(43,125,233,0.55); }
+  }
 
-  /* Card glow border */
+  /* Card glow border — clockwise */
   .tf-glow-wrap {
-    position: relative; border-radius: 14px; padding: 1.5px; overflow: hidden;
+    position: relative; border-radius: 16px; padding: 1.5px; overflow: hidden;
   }
   .tf-glow-spin {
     position: absolute; width: 200%; height: 200%; top: -50%; left: -50%;
     background: conic-gradient(
       rgba(99,179,237,0) 0deg,
-      rgba(147,210,255,0.7) 40deg,
+      rgba(147,210,255,0.65) 40deg,
       rgba(99,179,237,0) 80deg,
       rgba(99,179,237,0) 360deg
     );
     animation: tf-glow-cw 5s linear infinite;
   }
   .tf-card {
-    position: relative; border-radius: 13px; overflow: hidden;
-    background: rgba(10,10,20,0.98);
-    animation: tf-card-in 360ms cubic-bezier(0.16,1,0.3,1) both;
+    position: relative; border-radius: 15px; overflow: hidden;
+    background: rgba(9,9,18,0.99);
+    animation: tf-card-in 380ms cubic-bezier(0.16,1,0.3,1) both;
   }
 
-  /* Input wrapper */
-  .tf-input-wrap {
-    position: relative; display: flex; align-items: center;
+  /* Tab switcher */
+  .tf-tabs {
+    display: flex; border-bottom: 1px solid rgba(255,255,255,0.07); margin-bottom: 24px;
   }
+  .tf-tab-btn {
+    flex: 1; padding: 11px 0; font-size: 13.5px; font-weight: 500;
+    font-family: inherit; border: none; background: transparent; cursor: pointer;
+    color: rgba(255,255,255,0.30); position: relative; transition: color 180ms;
+    letter-spacing: 0.01em;
+  }
+  .tf-tab-btn::after {
+    content: ''; position: absolute; bottom: -1px; left: 20%; right: 20%; height: 2px;
+    border-radius: 2px 2px 0 0; background: rgba(99,179,237,0.9);
+    opacity: 0; transform: scaleX(0.3);
+    transition: opacity 220ms, transform 250ms cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .tf-tab-btn.active { color: rgba(255,255,255,0.90); font-weight: 600; }
+  .tf-tab-btn.active::after { opacity: 1; transform: scaleX(1); }
+
+  /* Inputs */
+  .tf-input-wrap { position: relative; display: flex; align-items: center; }
   .tf-input-icon {
-    position: absolute; left: 14px; color: rgba(255,255,255,0.28); pointer-events: none;
+    position: absolute; left: 13px; color: rgba(255,255,255,0.25); pointer-events: none;
     display: flex; align-items: center;
   }
   .tf-input {
-    width: 100%; height: 50px; padding: 0 14px 0 42px;
-    border-radius: 6px; font-size: 14px; color: white; outline: none;
+    width: 100%; height: 48px; padding: 0 14px 0 40px;
+    border-radius: 8px; font-size: 14px; font-family: inherit; color: white; outline: none;
     background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09);
     transition: border-color 150ms, box-shadow 150ms;
+    letter-spacing: 0.01em;
   }
-  .tf-input-plain {
-    width: 100%; height: 50px; padding: 0 14px;
-    border-radius: 6px; font-size: 14px; color: white; outline: none;
+  .tf-input-code {
+    width: 100%; height: 56px; padding: 0 14px;
+    border-radius: 8px; font-family: inherit; color: white; outline: none;
     background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09);
     transition: border-color 150ms, box-shadow 150ms;
-    text-align: center; letter-spacing: 0.22em; font-size: 20px; font-weight: 600;
+    text-align: center; font-size: 24px; font-weight: 700; letter-spacing: 0.28em;
   }
-  .tf-input::placeholder, .tf-input-plain::placeholder { color: rgba(255,255,255,0.18); }
-  .tf-input:focus, .tf-input-plain:focus {
-    border-color: rgba(99,179,237,0.55);
+  .tf-input::placeholder, .tf-input-code::placeholder { color: rgba(255,255,255,0.16); }
+  .tf-input:focus, .tf-input-code:focus {
+    border-color: rgba(99,179,237,0.5);
     box-shadow: 0 0 0 3px rgba(99,179,237,0.09);
   }
   .tf-input:-webkit-autofill,
   .tf-input:-webkit-autofill:hover,
   .tf-input:-webkit-autofill:focus {
     -webkit-text-fill-color: white;
-    -webkit-box-shadow: 0 0 0px 1000px rgb(10,10,20) inset;
+    -webkit-box-shadow: 0 0 0px 1000px rgb(9,9,18) inset;
     transition: background-color 5000s ease-in-out 0s;
   }
 
-  /* Primary button */
+  /* Primary button — solid color, shimmer + breathe */
   .tf-btn {
-    width: 100%; height: 50px; border-radius: 6px;
-    font-size: 14.5px; font-weight: 600; color: white;
-    border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
-    background: linear-gradient(135deg, #5eaee0 0%, #3a8fe8 100%);
-    box-shadow: 0 2px 18px rgba(80,160,240,0.28);
-    transition: opacity 140ms, transform 80ms, box-shadow 140ms;
+    width: 100%; height: 50px; border-radius: 8px;
+    font-size: 14.5px; font-weight: 600; font-family: inherit; color: white;
+    border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    position: relative; overflow: hidden;
+    background: #2b7de9;
+    animation: tf-btn-breathe 3s ease-in-out infinite;
+    transition: opacity 140ms, transform 80ms, filter 140ms;
     letter-spacing: 0.02em;
   }
-  .tf-btn:hover:not(:disabled) {
-    opacity: 0.90;
-    box-shadow: 0 4px 26px rgba(80,160,240,0.38);
+  .tf-btn::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.18) 50%, transparent 100%);
+    transform: translateX(-120%) skewX(-20deg);
   }
+  .tf-btn:hover:not(:disabled)::before { animation: tf-shimmer 0.55s ease forwards; }
+  .tf-btn:hover:not(:disabled) { filter: brightness(1.08); }
   .tf-btn:active:not(:disabled) { transform: scale(0.985); }
-  .tf-btn:disabled { opacity: 0.36; cursor: not-allowed; }
+  .tf-btn:disabled { opacity: 0.36; cursor: not-allowed; animation: none; }
+  .tf-btn span { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; }
+  .tf-arrow {
+    transition: transform 220ms cubic-bezier(0.34,1.56,0.64,1);
+    flex-shrink: 0;
+  }
+  .tf-btn:hover:not(:disabled) .tf-arrow { transform: translateX(4px); }
 
   /* Google button */
   .tf-google-btn {
-    width: 100%; height: 50px; border-radius: 6px;
-    font-size: 14.5px; font-weight: 500; color: rgba(255,255,255,0.88);
-    border: 1px solid rgba(255,255,255,0.13);
+    width: 100%; height: 48px; border-radius: 8px;
+    font-size: 14px; font-weight: 500; font-family: inherit; color: rgba(255,255,255,0.82);
+    border: 1px solid rgba(255,255,255,0.11);
     cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
-    background: rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.055);
     transition: background 140ms, border-color 140ms, transform 80ms;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
   }
   .tf-google-btn:hover:not(:disabled) {
-    background: rgba(255,255,255,0.10);
-    border-color: rgba(255,255,255,0.22);
+    background: rgba(255,255,255,0.09);
+    border-color: rgba(255,255,255,0.20);
   }
   .tf-google-btn:active:not(:disabled) { transform: scale(0.985); }
   .tf-google-btn:disabled { opacity: 0.38; cursor: not-allowed; }
 
   /* OR divider */
   .tf-divider {
-    display: flex; align-items: center; gap: 12px; margin: 18px 0;
+    display: flex; align-items: center; gap: 12px; margin: 18px 0 20px;
   }
   .tf-divider::before, .tf-divider::after {
-    content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.08);
+    content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.07);
   }
   .tf-divider span {
     font-size: 11px; color: rgba(255,255,255,0.20); font-weight: 500;
-    letter-spacing: 0.08em; text-transform: uppercase;
+    letter-spacing: 0.07em; text-transform: uppercase;
   }
 
-  /* Stagger-in for fields */
-  .tf-f0 { animation: tf-field-in 240ms cubic-bezier(0.16,1,0.3,1) both; animation-delay: 0ms; }
-  .tf-f1 { animation: tf-field-in 240ms cubic-bezier(0.16,1,0.3,1) both; animation-delay: 55ms; }
-  .tf-f2 { animation: tf-field-in 240ms cubic-bezier(0.16,1,0.3,1) both; animation-delay: 110ms; }
-  .tf-f3 { animation: tf-field-in 240ms cubic-bezier(0.16,1,0.3,1) both; animation-delay: 165ms; }
+  /* Stagger field animations */
+  .tf-f0 { animation: tf-field-in 250ms cubic-bezier(0.16,1,0.3,1) both; animation-delay: 0ms;   }
+  .tf-f1 { animation: tf-field-in 250ms cubic-bezier(0.16,1,0.3,1) both; animation-delay: 55ms;  }
+  .tf-f2 { animation: tf-field-in 250ms cubic-bezier(0.16,1,0.3,1) both; animation-delay: 110ms; }
+  .tf-f3 { animation: tf-field-in 250ms cubic-bezier(0.16,1,0.3,1) both; animation-delay: 165ms; }
 
+  .tf-label {
+    display: block; font-size: 11.5px; font-weight: 500;
+    color: rgba(255,255,255,0.35); margin-bottom: 8px; letter-spacing: 0.04em; text-transform: uppercase;
+  }
   .tf-error {
-    font-size: 13px; color: rgba(252,120,120,0.95); padding: 10px 14px;
-    background: rgba(252,80,80,0.08); border-radius: 6px;
-    border: 1px solid rgba(252,80,80,0.18); line-height: 1.5;
+    font-size: 13px; color: rgba(252,120,120,0.95); padding: 10px 13px;
+    background: rgba(252,80,80,0.07); border-radius: 8px;
+    border: 1px solid rgba(252,80,80,0.17); line-height: 1.55;
     animation: tf-fade 180ms ease both;
   }
   .tf-link-btn {
-    background: none; border: none; cursor: pointer; padding: 0;
-    color: rgba(99,179,237,0.75); font-weight: 500;
+    background: none; border: none; cursor: pointer; padding: 0; font-family: inherit;
+    color: rgba(99,179,237,0.72); font-weight: 600; font-size: inherit;
     transition: color 130ms;
   }
   .tf-link-btn:hover { color: rgba(147,210,255,0.9); }
@@ -332,12 +389,6 @@ export function App() {
 
   const anyLoading = loading || googleLoading;
 
-  const label = (text: string) => (
-    <div style={{ fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.36)', marginBottom: 8, letterSpacing: '0.03em' }}>
-      {text}
-    </div>
-  );
-
   return (
     <>
       <style>{STYLES}</style>
@@ -348,205 +399,228 @@ export function App() {
       }}>
         <div style={{ width: '100%', maxWidth: 400 }}>
 
-          {/* Glowing card */}
           <div className="tf-glow-wrap">
             <div className="tf-glow-spin" />
-            <div className="tf-card" style={{ padding: '36px 32px 32px' }}>
+            <div className="tf-card">
 
-              {/* ── Logo + heading ── */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 32 }}>
+              {/* ── Header: logo + tabs ── */}
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                padding: '36px 32px 0',
+                borderBottom: '1px solid rgba(255,255,255,0.06)',
+              }}>
+                {/* Logo — oversized inside clipping container to crop outer padding */}
                 {logoUrl && (
                   <div style={{
-                    width: 52, height: 52, borderRadius: 13, overflow: 'hidden',
-                    marginBottom: 20, boxShadow: '0 4px 18px rgba(0,0,0,0.45)',
-                    flexShrink: 0,
+                    width: 148, height: 148, overflow: 'hidden',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    marginBottom: 10, flexShrink: 0,
                   }}>
-                    <img src={logoUrl} alt="TabFlow" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    <img
+                      src={logoUrl}
+                      alt="TabFlow"
+                      style={{
+                        width: 210, height: 210, objectFit: 'contain',
+                        mixBlendMode: 'screen', flexShrink: 0,
+                      }}
+                    />
                   </div>
                 )}
 
-                {view === 'confirm' ? (
-                  <>
-                    <div style={{ fontSize: 24, fontWeight: 700, color: 'white', letterSpacing: '-0.5px', textAlign: 'center' }}>
-                      Check your email
-                    </div>
-                    <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', marginTop: 6, lineHeight: 1.6, textAlign: 'center' }}>
-                      We sent a code to{' '}
-                      <span style={{ color: 'rgba(147,210,255,0.8)', fontWeight: 500 }}>
-                        {pendingEmail.current}
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ fontSize: 24, fontWeight: 700, color: 'white', letterSpacing: '-0.5px' }}>
-                      {view === 'signin' ? 'Welcome back' : 'Create account'}
-                    </div>
-                    <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.32)', marginTop: 6 }}>
-                      {view === 'signin'
-                        ? 'Sign in to continue to TabFlow'
-                        : 'Get started for free'}
-                    </div>
-                  </>
+                <div style={{ fontSize: 22, fontWeight: 800, color: 'white', letterSpacing: '-0.5px' }}>
+                  TabFlow
+                </div>
+                <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.28)', marginTop: 5, marginBottom: 24, letterSpacing: '0.01em' }}>
+                  {view === 'confirm' ? 'Check your email for a code' : 'Your intelligent tab manager'}
+                </div>
+
+                {/* Tab switcher — only show on sign in/up views */}
+                {view !== 'confirm' && (
+                  <div className="tf-tabs" style={{ width: '100%' }}>
+                    <button
+                      className={`tf-tab-btn${view === 'signin' ? ' active' : ''}`}
+                      onClick={() => switchView('signin')}
+                    >
+                      Sign in
+                    </button>
+                    <button
+                      className={`tf-tab-btn${view === 'signup' ? ' active' : ''}`}
+                      onClick={() => switchView('signup')}
+                    >
+                      Sign up
+                    </button>
+                  </div>
                 )}
               </div>
 
-              {/* ── Confirm view ── */}
-              {view === 'confirm' ? (
-                <form onSubmit={handleConfirm} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <div className="tf-f0">
-                    {label('Verification code')}
-                    <input
-                      className="tf-input-plain"
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      placeholder="123456"
-                      value={code}
-                      onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      autoFocus
-                      required
-                    />
-                  </div>
+              {/* ── Body ── */}
+              <div style={{ padding: '28px 32px 32px' }}>
 
-                  {error && <div className="tf-error">{error}</div>}
-                  {resendMsg && (
-                    <div style={{ fontSize: 12.5, color: 'rgba(99,210,160,0.85)', textAlign: 'center', animation: 'tf-fade 200ms ease both' }}>
-                      {resendMsg}
+                {/* ─ Confirm view ─ */}
+                {view === 'confirm' ? (
+                  <form onSubmit={handleConfirm} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ textAlign: 'center', marginBottom: 4 }}>
+                      <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.38)', lineHeight: 1.65 }}>
+                        We sent a code to{' '}
+                        <span style={{ color: 'rgba(147,210,255,0.82)', fontWeight: 600 }}>
+                          {pendingEmail.current}
+                        </span>
+                      </div>
                     </div>
-                  )}
 
-                  <div className="tf-f1">
-                    <button className="tf-btn" type="submit" disabled={loading || code.length < 6}>
-                      {loading ? <Spinner /> : 'Verify email'}
-                    </button>
-                  </div>
+                    <div className="tf-f0">
+                      <label className="tf-label">Verification code</label>
+                      <input
+                        className="tf-input-code"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        placeholder="000000"
+                        value={code}
+                        onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        autoFocus
+                        required
+                      />
+                    </div>
 
-                  <div style={{ textAlign: 'center', marginTop: 2 }}>
-                    <button type="button" onClick={handleResend} className="tf-link-btn" style={{ fontSize: 13 }}>
-                      Didn't receive it? Resend code
-                    </button>
-                  </div>
-                </form>
+                    {error && <div className="tf-error">{error}</div>}
+                    {resendMsg && (
+                      <div style={{ fontSize: 12.5, color: 'rgba(99,210,160,0.85)', textAlign: 'center', animation: 'tf-fade 200ms ease both' }}>
+                        {resendMsg}
+                      </div>
+                    )}
 
-              ) : (
-                /* ── Sign in / Sign up ── */
-                <>
-                  {/* Google */}
-                  <div className="tf-f0">
-                    <button
-                      className="tf-google-btn"
-                      type="button"
-                      onClick={handleGoogleSignIn}
-                      disabled={anyLoading}
-                    >
-                      {googleLoading ? <Spinner /> : <GoogleIcon />}
-                      Continue with Google
-                    </button>
-                  </div>
-
-                  <div className="tf-divider"><span>or</span></div>
-
-                  {/* Email / password form */}
-                  <form
-                    key={view}
-                    onSubmit={view === 'signin' ? handleSignIn : handleSignUp}
-                    style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
-                  >
                     <div className="tf-f1">
-                      {label('Email address')}
-                      <div className="tf-input-wrap">
-                        <span className="tf-input-icon"><EmailIcon /></span>
-                        <input
-                          className="tf-input"
-                          type="email"
-                          autoComplete="email"
-                          placeholder="you@example.com"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          required
-                          autoFocus
-                        />
-                      </div>
+                      <button className="tf-btn" type="submit" disabled={loading || code.length < 6}>
+                        {loading ? <Spinner /> : <span>Verify email <ArrowIcon /></span>}
+                      </button>
                     </div>
 
-                    <div className="tf-f2">
-                      {label('Password')}
-                      <div className="tf-input-wrap">
-                        <span className="tf-input-icon"><LockIcon /></span>
-                        <input
-                          className="tf-input"
-                          type={showPassword ? 'text' : 'password'}
-                          autoComplete={view === 'signin' ? 'current-password' : 'new-password'}
-                          placeholder={view === 'signin' ? '••••••••' : 'Min. 8 characters'}
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          style={{ paddingRight: 42 }}
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          style={{
-                            position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                            background: 'none', border: 'none', cursor: 'pointer',
-                            color: 'rgba(255,255,255,0.26)', padding: 4, display: 'flex',
-                          }}
-                        >
-                          <EyeIcon open={showPassword} />
-                        </button>
-                      </div>
+                    <div style={{ textAlign: 'center', marginTop: 4 }}>
+                      <button type="button" onClick={handleResend} className="tf-link-btn" style={{ fontSize: 13 }}>
+                        Didn't receive it? Resend code
+                      </button>
+                    </div>
+                  </form>
+
+                ) : (
+                  /* ─ Sign in / Sign up view ─ */
+                  <>
+                    {/* Google */}
+                    <div className="tf-f0">
+                      <button
+                        className="tf-google-btn"
+                        type="button"
+                        onClick={handleGoogleSignIn}
+                        disabled={anyLoading}
+                      >
+                        {googleLoading ? <Spinner /> : <GoogleIcon />}
+                        Continue with Google
+                      </button>
                     </div>
 
-                    {view === 'signup' && (
-                      <div className="tf-f3">
-                        {label('Confirm password')}
+                    <div className="tf-divider"><span>or</span></div>
+
+                    {/* Form */}
+                    <form
+                      key={view}
+                      onSubmit={view === 'signin' ? handleSignIn : handleSignUp}
+                      style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+                    >
+                      <div className="tf-f1">
+                        <label className="tf-label">Email address</label>
+                        <div className="tf-input-wrap">
+                          <span className="tf-input-icon"><EmailIcon /></span>
+                          <input
+                            className="tf-input"
+                            type="email"
+                            autoComplete="email"
+                            placeholder="you@example.com"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            autoFocus
+                          />
+                        </div>
+                      </div>
+
+                      <div className="tf-f2">
+                        <label className="tf-label">Password</label>
                         <div className="tf-input-wrap">
                           <span className="tf-input-icon"><LockIcon /></span>
                           <input
                             className="tf-input"
                             type={showPassword ? 'text' : 'password'}
-                            autoComplete="new-password"
-                            placeholder="••••••••"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            autoComplete={view === 'signin' ? 'current-password' : 'new-password'}
+                            placeholder={view === 'signin' ? '••••••••' : 'Min. 8 characters'}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            style={{ paddingRight: 42 }}
                             required
                           />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            style={{
+                              position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)',
+                              background: 'none', border: 'none', cursor: 'pointer',
+                              color: 'rgba(255,255,255,0.24)', padding: 4, display: 'flex',
+                            }}
+                          >
+                            <EyeIcon open={showPassword} />
+                          </button>
                         </div>
                       </div>
-                    )}
 
-                    {error && <div className="tf-error">{error}</div>}
+                      {view === 'signup' && (
+                        <div className="tf-f3">
+                          <label className="tf-label">Confirm password</label>
+                          <div className="tf-input-wrap">
+                            <span className="tf-input-icon"><LockIcon /></span>
+                            <input
+                              className="tf-input"
+                              type={showPassword ? 'text' : 'password'}
+                              autoComplete="new-password"
+                              placeholder="••••••••"
+                              value={confirmPassword}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
+                              required
+                            />
+                          </div>
+                        </div>
+                      )}
 
-                    <div className="tf-f3" style={{ marginTop: 4 }}>
-                      <button className="tf-btn" type="submit" disabled={anyLoading}>
-                        {loading ? <Spinner /> : view === 'signin' ? 'Sign in' : 'Create account'}
-                      </button>
+                      {error && <div className="tf-error">{error}</div>}
+
+                      <div className="tf-f3" style={{ marginTop: 6 }}>
+                        <button className="tf-btn" type="submit" disabled={anyLoading}>
+                          {loading
+                            ? <Spinner />
+                            : <span>{view === 'signin' ? 'Sign in' : 'Create account'} <ArrowIcon /></span>
+                          }
+                        </button>
+                      </div>
+                    </form>
+
+                    {/* Switch view */}
+                    <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: 'rgba(255,255,255,0.26)' }}>
+                      {view === 'signin' ? (
+                        <>Don't have an account?{' '}
+                          <button className="tf-link-btn" onClick={() => switchView('signup')}>Sign up free</button>
+                        </>
+                      ) : (
+                        <>Already have an account?{' '}
+                          <button className="tf-link-btn" onClick={() => switchView('signin')}>Sign in</button>
+                        </>
+                      )}
                     </div>
-                  </form>
-
-                  {/* Switch view */}
-                  <div style={{ textAlign: 'center', marginTop: 22, fontSize: 13, color: 'rgba(255,255,255,0.28)' }}>
-                    {view === 'signin' ? (
-                      <>Don't have an account?{' '}
-                        <button className="tf-link-btn" onClick={() => switchView('signup')} style={{ fontSize: 13 }}>
-                          Sign up free
-                        </button>
-                      </>
-                    ) : (
-                      <>Already have an account?{' '}
-                        <button className="tf-link-btn" onClick={() => switchView('signin')} style={{ fontSize: 13 }}>
-                          Sign in
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </>
-              )}
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
-          <div style={{ textAlign: 'center', marginTop: 20, fontSize: 11, color: 'rgba(255,255,255,0.14)' }}>
+          <div style={{ textAlign: 'center', marginTop: 20, fontSize: 11, color: 'rgba(255,255,255,0.13)', fontFamily: 'Inter, sans-serif' }}>
             Free · No credit card required
           </div>
         </div>
