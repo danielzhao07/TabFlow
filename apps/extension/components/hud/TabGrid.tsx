@@ -163,6 +163,10 @@ export function TabGrid({
     });
   }
 
+  // Use the intersection with current tabs — avoids stale IDs from closed tabs inflating the count
+  const effectiveSelectedCount = tabs.filter((t) => selectedTabs.has(t.tabId)).length;
+  const hasGroupedInSelection = tabs.some((t) => selectedTabs.has(t.tabId) && !!t.groupId);
+
   // Reusable card renderer; groupColor applies a per-card colored outline
   const renderCard = ({ tab, flatIndex: fi }: { tab: TabInfo; flatIndex: number }, groupColor?: string) => {
     const dragHandlers = {
@@ -189,7 +193,7 @@ export function TabGrid({
         isDuplicate={duplicateUrls.has(tab.url)}
         note={notesMap.get(tab.url)}
         thumbnail={thumbnails?.get(tab.tabId)}
-        selectedTabsCount={selectedTabs.size}
+        selectedTabsCount={effectiveSelectedCount}
         onSwitch={actions.switchToTab}
         onClose={actions.closeTab}
         onTogglePin={actions.togglePin}
@@ -199,10 +203,18 @@ export function TabGrid({
         onReload={actions.reloadTab}
         onToggleBookmark={actions.toggleBookmark}
         onToggleMute={actions.toggleMute}
+        onGroupTab={actions.groupTab}
+        onUngroupTab={actions.ungroupTab}
         onCloseSelected={actions.closeSelectedTabs}
         onGroupSelected={actions.groupSelectedTabs}
         onUngroupSelected={actions.ungroupSelectedTabs}
         onMoveSelectedToNewWindow={actions.moveSelectedToNewWindow}
+        onPinSelected={actions.pinSelectedTabs}
+        onBookmarkSelected={actions.bookmarkSelectedTabs}
+        onMuteSelected={actions.muteSelectedTabs}
+        onDuplicateSelected={actions.duplicateSelectedTabs}
+        onReloadSelected={actions.reloadSelectedTabs}
+        hasGroupedInSelection={hasGroupedInSelection}
         animDelay={Math.min(fi * 12, 120)}
       />
     );

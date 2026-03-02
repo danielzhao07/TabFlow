@@ -27,6 +27,14 @@ export interface TabActions {
   moveToNewWindow: (tabId: number) => Promise<void>;
   moveSelectedToNewWindow: () => Promise<void>;
   reloadTab: (tabId: number) => void;
+  groupTab: (tabId: number) => Promise<void>;
+  ungroupTab: (tabId: number) => Promise<void>;
+  // Bulk actions for multi-select
+  pinSelectedTabs: (pinned: boolean) => void;
+  bookmarkSelectedTabs: () => Promise<void>;
+  muteSelectedTabs: (muted: boolean) => Promise<void>;
+  duplicateSelectedTabs: () => void;
+  reloadSelectedTabs: () => void;
 }
 
 export function useTabActions(s: HudState): TabActions {
@@ -41,6 +49,13 @@ export function useTabActions(s: HudState): TabActions {
     s.setTabs((prev) => {
       const next = prev.filter((t) => t.tabId !== tabId);
       s.setSelectedIndex((idx) => Math.min(idx, Math.max(0, next.length - 1)));
+      return next;
+    });
+    // Remove from multi-selection if present
+    s.setSelectedTabs((prev) => {
+      if (!prev.has(tabId)) return prev;
+      const next = new Set(prev);
+      next.delete(tabId);
       return next;
     });
     if (closedTab) {
@@ -252,12 +267,63 @@ export function useTabActions(s: HudState): TabActions {
     chrome.runtime.sendMessage({ type: 'reload-tab', payload: { tabId } });
   }, []);
 
+  const groupTab = useCallback(async (tabId: number) => {
+    const tab = s.tabs.find((t) => t.tabId === tabId);
+    if (!tab) return;
+    const domain = getDomain(tab.url);
+    const usedColors = new Set(s.tabs.filter((t) => t.groupColor).map((t) => t.groupColor!));
+    const color = pickGroupColor(domain, usedColors);
+    await chrome.runtime.sendMessage({ type: 'group-tabs', payload: { tabIds: [tabId], title: domain.split('.')[0] || '', color } });
+    s.fetchTabs();
+  }, [s]);
+
+  const ungroupTab = useCallback(async (tabId: number) => {
+    await chrome.runtime.sendMessage({ type: 'ungroup-tabs', payload: { tabIds: [tabId] } });
+    s.fetchTabs();
+  }, [s]);
+
+  const pinSelectedTabs = useCallback((pinned: boolean) => {
+    for (const tabId of s.selectedTabs) {
+      chrome.runtime.sendMessage({ type: 'pin-tab', payload: { tabId, pinned } });
+    }
+    s.setTabs((prev) => prev.map((t) => s.selectedTabs.has(t.tabId) ? { ...t, isPinned: pinned } : t));
+  }, [s]);
+
+  const bookmarkSelectedTabs = useCallback(async () => {
+    const toBookmark = s.tabs.filter((t) => s.selectedTabs.has(t.tabId) && !s.bookmarkedUrls.has(t.url));
+    let lastRes: { bookmarks?: TabBookmark[] } | null = null;
+    for (const tab of toBookmark) {
+      lastRes = await chrome.runtime.sendMessage({ type: 'add-bookmark', payload: { url: tab.url, title: tab.title, faviconUrl: tab.faviconUrl } });
+    }
+    if (lastRes?.bookmarks) s.setBookmarkedUrls(new Set(lastRes.bookmarks.map((b: TabBookmark) => b.url)));
+  }, [s]);
+
+  const muteSelectedTabs = useCallback(async (muted: boolean) => {
+    for (const tabId of s.selectedTabs) {
+      chrome.runtime.sendMessage({ type: 'mute-tab', payload: { tabId, muted } });
+    }
+    s.setTabs((prev) => prev.map((t) => s.selectedTabs.has(t.tabId) ? { ...t, isMuted: muted } : t));
+  }, [s]);
+
+  const duplicateSelectedTabs = useCallback(() => {
+    for (const tabId of s.selectedTabs) {
+      chrome.runtime.sendMessage({ type: 'duplicate-tab', payload: { tabId } });
+    }
+  }, [s]);
+
+  const reloadSelectedTabs = useCallback(() => {
+    for (const tabId of s.selectedTabs) {
+      chrome.runtime.sendMessage({ type: 'reload-tab', payload: { tabId } });
+    }
+  }, [s]);
+
   return {
     switchToTab, closeTab, togglePin, toggleSelect, closeSelectedTabs, closeDuplicates,
     groupSelectedTabs, ungroupSelectedTabs, dissolveGroup, toggleBookmark, saveNote, snoozeTab,
     moveToWindow, reorderTabs, toggleMute, closeByDomain, groupSuggestionTabs,
     restoreSession, reopenLastClosed, selectAll, duplicateTab, moveToNewWindow,
-    moveSelectedToNewWindow, reloadTab,
+    moveSelectedToNewWindow, reloadTab, groupTab, ungroupTab,
+    pinSelectedTabs, bookmarkSelectedTabs, muteSelectedTabs, duplicateSelectedTabs, reloadSelectedTabs,
   };
 }
 

@@ -112,6 +112,12 @@ export function HudOverlay() {
 
       if (message.type === 'tab-removed' && s.visible && message.tabId) {
         s.setTabs((prev) => prev.filter((t) => t.tabId !== message.tabId));
+        s.setSelectedTabs((prev) => {
+          if (!prev.has(message.tabId!)) return prev;
+          const next = new Set(prev);
+          next.delete(message.tabId!);
+          return next;
+        });
       }
       if (message.type === 'tab-created' && s.visible) {
         s.fetchTabs();

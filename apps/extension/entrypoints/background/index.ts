@@ -790,10 +790,42 @@ export default defineBackground(() => {
           const allWins = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
           for (const win of allWins) {
             if (win.id === currentWin.id) continue;
-            const tabs = win.tabs ?? [];
+            const tabs = (win.tabs ?? []).filter((t) => t.id != null);
+
+            // Snapshot group metadata before moving (groups are window-scoped and lost on move)
+            const srcGroups = await chrome.tabGroups.query({ windowId: win.id });
+            const groupInfoMap = new Map<number, { title: string; color: chrome.tabGroups.ColorEnum }>();
+            for (const g of srcGroups) {
+              groupInfoMap.set(g.id, { title: g.title ?? '', color: g.color });
+            }
+
+            // Snapshot which tabs belong to which group (groupId === -1 means ungrouped)
+            const groupedTabIds = new Map<number, number[]>();
             for (const tab of tabs) {
-              if (tab.id != null) {
-                await chrome.tabs.move(tab.id, { windowId: currentWin.id!, index: -1 });
+              const gid = tab.groupId ?? -1;
+              if (gid !== -1) {
+                if (!groupedTabIds.has(gid)) groupedTabIds.set(gid, []);
+                groupedTabIds.get(gid)!.push(tab.id!);
+              }
+            }
+
+            // Move all tabs to current window (they lose group membership here)
+            for (const tab of tabs) {
+              await chrome.tabs.move(tab.id!, { windowId: currentWin.id!, index: -1 });
+            }
+
+            // Re-create each group in the current window with the same title + color
+            for (const [oldGroupId, tabIds] of groupedTabIds) {
+              const info = groupInfoMap.get(oldGroupId);
+              const newGroupId = await chrome.tabs.group({
+                tabIds,
+                createProperties: { windowId: currentWin.id! },
+              });
+              if (info) {
+                await chrome.tabGroups.update(newGroupId, {
+                  title: info.title,
+                  color: info.color,
+                });
               }
             }
           }

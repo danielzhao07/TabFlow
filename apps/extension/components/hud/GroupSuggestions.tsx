@@ -57,7 +57,10 @@ export function GroupSuggestions({
     return [...groups.values()].slice(0, 6);
   }, [tabs]);
 
-  const hasMultiSelect = (selectedTabs?.size ?? 0) > 1;
+  // Use intersection with current tabs — avoids stale IDs from closed tabs inflating the count
+  const effectiveSelectedCount = tabs.filter((t) => selectedTabs?.has(t.tabId)).length;
+  const hasMultiSelect = effectiveSelectedCount > 1;
+  const hasGroupedInSelection = hasMultiSelect && tabs.some((t) => selectedTabs!.has(t.tabId) && !!t.groupId);
 
   if (suggestions.length === 0 && existingGroups.length === 0 && !hasMultiSelect) return null;
 
@@ -132,26 +135,49 @@ export function GroupSuggestions({
         <div className="w-px h-3.5 bg-white/10 shrink-0 mx-0.5" />
       )}
 
-      {/* Group selected tabs */}
+      {/* Multi-select actions */}
       {hasMultiSelect && (
-        <button
-          className="flex items-center gap-1.5 px-2.5 shrink-0 rounded-md transition-all"
-          style={{
-            height: 26,
-            border: '1px solid rgba(255,255,255,0.10)',
-            background: hoveredId === 'group-sel' ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.04)',
-            boxShadow: hoveredId === 'group-sel' ? '0 0 8px rgba(255,255,255,0.08)' : 'none',
-            transition: 'background 150ms, box-shadow 150ms',
-            outline: 'none',
-            cursor: 'pointer',
-          }}
-          onMouseEnter={() => setHoveredId('group-sel')}
-          onMouseLeave={() => setHoveredId(null)}
-          onClick={() => actions.groupSelectedTabs()}
-          title={`Group ${selectedTabs!.size} selected tabs`}
-        >
-          <span className="text-[11px] text-white/50">Group {selectedTabs!.size} tabs</span>
-        </button>
+        <>
+          <button
+            className="flex items-center gap-1.5 px-2.5 shrink-0 rounded-md transition-all"
+            style={{
+              height: 26,
+              border: '1px solid rgba(255,255,255,0.10)',
+              background: hoveredId === 'group-sel' ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.04)',
+              boxShadow: hoveredId === 'group-sel' ? '0 0 8px rgba(255,255,255,0.08)' : 'none',
+              transition: 'background 150ms, box-shadow 150ms',
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={() => setHoveredId('group-sel')}
+            onMouseLeave={() => setHoveredId(null)}
+            onClick={() => actions.groupSelectedTabs()}
+            title={`Group ${effectiveSelectedCount} selected tabs`}
+          >
+            <span className="text-[11px] text-white/50">Group {effectiveSelectedCount}</span>
+          </button>
+
+          {hasGroupedInSelection && (
+            <button
+              className="flex items-center gap-1.5 px-2.5 shrink-0 rounded-md transition-all"
+              style={{
+                height: 26,
+                border: '1px solid rgba(255,255,255,0.10)',
+                background: hoveredId === 'ungroup-sel' ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.04)',
+                boxShadow: hoveredId === 'ungroup-sel' ? '0 0 8px rgba(255,255,255,0.08)' : 'none',
+                transition: 'background 150ms, box-shadow 150ms',
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={() => setHoveredId('ungroup-sel')}
+              onMouseLeave={() => setHoveredId(null)}
+              onClick={() => actions.ungroupSelectedTabs()}
+              title={`Ungroup ${effectiveSelectedCount} selected tabs`}
+            >
+              <span className="text-[11px] text-white/50">Ungroup</span>
+            </button>
+          )}
+        </>
       )}
 
       {/* Domain suggestions */}

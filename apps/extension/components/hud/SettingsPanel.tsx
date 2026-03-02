@@ -111,11 +111,11 @@ export function SettingsPanel({
           style={{ ...DIVIDER, background: 'rgba(16,16,28,0.98)' }}
         >
           <div className="flex items-center gap-2">
-            <div style={{ width: 34, height: 34, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 40, height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <img
-                src={chrome.runtime.getURL('TabFlowV3.png')}
+                src={chrome.runtime.getURL('TabFlowV4.png')}
                 alt=""
-                style={{ width: 48, height: 48, objectFit: 'contain', mixBlendMode: 'screen' }}
+                style={{ width: 40, height: 40, objectFit: 'contain' }}
               />
             </div>
             <span className="text-[12px] font-medium text-white/60 tracking-wider uppercase">Settings</span>
@@ -168,10 +168,9 @@ export function SettingsPanel({
               {/* Logo + name */}
               <div className="flex flex-col items-center pt-6 pb-4 px-5">
                 <img
-                  src={chrome.runtime.getURL('TabFlowV3.png')}
+                  src={chrome.runtime.getURL('TabFlowV4.png')}
                   alt="TabFlow"
-                  className="w-28 h-28 object-contain mb-3"
-                  style={{ transform: 'scale(1.25)', transformOrigin: 'center' }}
+                  className="w-32 h-32 object-contain mb-3"
                 />
                 <span className="text-[15px] font-semibold text-white/90 tracking-tight">TabFlow</span>
                 <span className="text-[11px] text-white/35 mt-0.5">Your intelligent tab manager</span>

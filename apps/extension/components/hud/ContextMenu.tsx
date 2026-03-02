@@ -112,11 +112,26 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    const margin = 8;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // Cap maxHeight so the menu never exceeds the viewport
+    el.style.maxHeight = `${vh - margin * 2}px`;
+
     const r = el.getBoundingClientRect();
-    let flipH = false, flipV = false;
-    if (r.right > window.innerWidth - 8) { el.style.left = `${x - r.width}px`; flipH = true; }
-    if (r.bottom > window.innerHeight - 8) { el.style.top = `${y - r.height}px`; flipV = true; }
-    setOrigin(`${flipV ? 'bottom' : 'top'} ${flipH ? 'right' : 'left'}`);
+
+    // Horizontal: open rightward, flip left if it would overflow
+    let left = x;
+    if (left + r.width > vw - margin) left = Math.max(margin, x - r.width);
+    el.style.left = `${left}px`;
+
+    // Vertical: open downward, flip upward if it would overflow; clamp to top margin
+    let top = y;
+    if (top + r.height > vh - margin) top = Math.max(margin, y - r.height);
+    el.style.top = `${top}px`;
+
+    setOrigin(`${top < y ? 'bottom' : 'top'} ${left < x ? 'right' : 'left'}`);
   }, [x, y]);
 
   // Build a flat item index that skips divider rows (for hover tracking + stagger delay)
@@ -131,6 +146,8 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
         top: y,
         zIndex: 2147483647,
         minWidth: 214,
+        maxHeight: 'calc(90vh - 16px)',
+        overflowY: 'auto',
         padding: '5px',
         borderRadius: 13,
         background: 'linear-gradient(155deg, rgba(28, 24, 52, 0.97) 0%, rgba(16, 14, 34, 0.97) 100%)',
@@ -147,7 +164,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
       }}
     >
       {items.map((item, i) => {
-        if (!item.divider) flatIdx++;
+        flatIdx++;
         const fi = flatIdx;
         const isHover = active === fi;
         const isDanger = !!item.danger;
@@ -162,8 +179,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
               }} />
             )}
 
-            {!item.divider && (
-              <button
+            <button
                 onMouseEnter={() => setActive(fi)}
                 onMouseLeave={() => setActive(null)}
                 onClick={() => { item.action(); onClose(); }}
@@ -173,7 +189,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
                   alignItems: 'center',
                   gap: 10,
                   width: '100%',
-                  height: 36,
+                  height: 30,
                   // 15px left to leave room for the accent bar (3px) + space (9px) + icon
                   padding: '0 12px 0 15px',
                   borderRadius: 8,
@@ -241,7 +257,6 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
 
                 {item.label}
               </button>
-            )}
           </div>
         );
       })}

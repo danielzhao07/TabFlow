@@ -4,7 +4,7 @@ export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifest: {
     name: 'TabFlow',
-    description: 'See all your open tabs as a beautiful visual grid. AI-powered tab assistant, instant organization, and smart tab management. Hit Alt+Q and take control of your browser.',
+    description: 'Stop losing your tabs. TabFlow gives you a stunning visual grid, an AI tab assistant, and instant control. Just press Alt+Q.',
     version: '0.1.0',
     icons: {
       '16': 'icon-16.png',
@@ -15,7 +15,7 @@ export default defineConfig({
     permissions: ['tabs', 'activeTab', 'storage', 'favicon', 'sessions', 'tabGroups', 'alarms', 'identity', 'bookmarks'],
     host_permissions: ['<all_urls>'],
     web_accessible_resources: [
-      { resources: ['TabFlowV2.png', 'TabFlowV3.png', 'icon-16.png', 'icon-32.png', 'icon-48.png', 'icon-128.png'], matches: ['<all_urls>'] },
+      { resources: ['TabFlowV4.png', 'icon-16.png', 'icon-32.png', 'icon-48.png', 'icon-128.png'], matches: ['<all_urls>'] },
     ],
     commands: {
       'toggle-hud': {

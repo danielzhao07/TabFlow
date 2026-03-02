@@ -27,10 +27,18 @@ interface GridCardProps {
   onReload: (tabId: number) => void;
   onToggleBookmark: (tabId: number) => void;
   onToggleMute: (tabId: number) => void;
+  onGroupTab: (tabId: number) => Promise<void>;
+  onUngroupTab: (tabId: number) => Promise<void>;
   onCloseSelected: () => void;
   onGroupSelected: () => void;
   onUngroupSelected: () => void;
   onMoveSelectedToNewWindow: () => void;
+  onPinSelected: (pinned: boolean) => void;
+  onBookmarkSelected: () => void;
+  onMuteSelected: (muted: boolean) => void;
+  onDuplicateSelected: () => void;
+  onReloadSelected: () => void;
+  hasGroupedInSelection: boolean;
   animDelay?: number;
 }
 
@@ -51,7 +59,9 @@ export function GridCard({
   tab, index, isSelected, isMultiSelected, isBookmarked, isDuplicate, note, thumbnail,
   selectedTabsCount, onSwitch, onClose, onTogglePin, onToggleSelect,
   onDuplicate, onMoveToNewWindow, onReload, onToggleBookmark, onToggleMute,
-  onCloseSelected, onGroupSelected, onUngroupSelected, onMoveSelectedToNewWindow, animDelay = 0,
+  onGroupTab, onUngroupTab, onCloseSelected, onGroupSelected, onUngroupSelected, onMoveSelectedToNewWindow,
+  onPinSelected, onBookmarkSelected, onMuteSelected, onDuplicateSelected, onReloadSelected,
+  hasGroupedInSelection, animDelay = 0,
 }: GridCardProps) {
   const [faviconError, setFaviconError] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -61,7 +71,7 @@ export function GridCard({
   const groupColor = tab.groupColor ? (GROUP_COLORS[tab.groupColor] ?? '#6b7280') : null;
 
   // Whether this card is part of an active multi-selection
-  const isInMultiSelect = isMultiSelected && selectedTabsCount > 1;
+  const isInMultiSelect = selectedTabsCount > 1;
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -78,29 +88,57 @@ export function GridCard({
     }
   };
 
-  // Multi-select context menu
+  const n = selectedTabsCount;
+
+  // Multi-select context menu — primary actions at top so they're always visible even if menu is tall
   const multiContextItems: ContextMenuItem[] = [
     {
-      label: `Group ${selectedTabsCount} tabs`,
+      label: `Group ${n} tabs`,
       icon: <IcoGroup />,
       action: onGroupSelected,
     },
-    {
-      label: `Ungroup ${selectedTabsCount} tabs`,
+    ...(hasGroupedInSelection ? [{
+      label: `Ungroup ${n} tabs`,
       icon: <IcoGroup />,
       action: onUngroupSelected,
-    },
+    }] : []),
     {
-      label: `Move ${selectedTabsCount} tabs to new window`,
+      label: `Move ${n} tabs to new window`,
       icon: <IcoWindow />,
       action: onMoveSelectedToNewWindow,
     },
     {
-      label: `Close ${selectedTabsCount} tabs`,
+      label: `Close ${n} tabs`,
       icon: <IcoClose />,
       action: onCloseSelected,
       danger: true,
       divider: true,
+    },
+    {
+      label: tab.isPinned ? `Unpin ${n} tabs` : `Pin ${n} tabs`,
+      icon: <IcoPin />,
+      action: () => onPinSelected(!tab.isPinned),
+      divider: true,
+    },
+    {
+      label: `Bookmark ${n} tabs`,
+      icon: <IcoBookmark />,
+      action: onBookmarkSelected,
+    },
+    {
+      label: tab.isMuted ? `Unmute ${n} tabs` : `Mute ${n} tabs`,
+      icon: <IcoVolume muted={tab.isMuted} />,
+      action: () => onMuteSelected(!tab.isMuted),
+    },
+    {
+      label: `Duplicate ${n} tabs`,
+      icon: <IcoDuplicate />,
+      action: onDuplicateSelected,
+    },
+    {
+      label: `Reload ${n} tabs`,
+      icon: <IcoReload />,
+      action: onReloadSelected,
     },
   ];
 
@@ -136,6 +174,18 @@ export function GridCard({
       icon: <IcoReload />,
       action: () => onReload(tab.tabId),
     },
+    {
+      label: 'Group tab',
+      icon: <IcoGroup />,
+      action: () => { onGroupTab(tab.tabId); },
+      divider: true,
+    },
+    // Only show ungroup if this tab is actually in a group
+    ...(tab.groupId ? [{
+      label: 'Ungroup tab',
+      icon: <IcoGroup />,
+      action: () => { onUngroupTab(tab.tabId); },
+    }] : []),
     {
       label: 'Close tab',
       icon: <IcoClose />,

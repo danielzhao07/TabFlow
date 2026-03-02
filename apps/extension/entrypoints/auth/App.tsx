@@ -282,7 +282,7 @@ export function App() {
   const pendingPassword = useRef('');
 
   const logoUrl = typeof chrome !== 'undefined'
-    ? chrome.runtime.getURL('TabFlowV3.png')
+    ? chrome.runtime.getURL('TabFlowV4.png')
     : '';
 
   const completeAuth = async (tokenSet: TokenSet) => {
