@@ -209,9 +209,14 @@ export default defineBackground(() => {
 
   // Track tab removal — send targeted message for instant HUD update
   chrome.tabs.onRemoved.addListener(async (tabId) => {
+    // Grab the title BEFORE removing — for extension-initiated closes the MRU entry
+    // is already removed eagerly by the close-tab handler, so title will be '' there.
+    // For native Chrome closes it will be populated, letting the HUD show an UndoToast.
+    const mruList = await getMRUList();
+    const closedTitle = mruList.find((t) => t.tabId === tabId)?.title ?? '';
     await removeTab(tabId);
     if (tabThumbnails.delete(tabId)) persistThumbnails();
-    broadcastSpecific({ type: 'tab-removed', tabId });
+    broadcastSpecific({ type: 'tab-removed', tabId, title: closedTitle });
   });
 
   // Live group name/color changes — update all affected tabs in MRU and notify HUD

@@ -49,10 +49,16 @@ export function UndoToast({ message, onUndo, onDismiss, duration = 5000 }: UndoT
         transition: 'opacity 150ms ease-out, transform 150ms ease-out',
       }}
     >
-      {/* Tab closed icon */}
-      <svg className="w-3.5 h-3.5 text-white/35 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-      </svg>
+      {/* Dismiss (X) button */}
+      <button
+        onClick={() => { setVisible(false); setTimeout(onDismiss, 150); }}
+        className="w-5 h-5 flex items-center justify-center rounded text-white/30 hover:text-white/70 hover:bg-white/10 transition-colors shrink-0"
+        title="Dismiss"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
 
       <span className="text-[12px] text-white/55 whitespace-nowrap">{message}</span>
 

@@ -92,6 +92,8 @@ export interface HudState {
   // Fetch
   fetchTabs: () => Promise<void>;
   fetchRecentTabs: () => Promise<void>;
+  // Deduplication ref: tracks tab IDs closed by the extension (so 'tab-removed' handler skips them)
+  pendingExtensionCloseIdsRef: React.MutableRefObject<Set<number>>;
 }
 
 export function useHudState(): HudState {
@@ -116,6 +118,7 @@ export function useHudState(): HudState {
   const [thumbnails, setThumbnails] = useState<Map<number, string>>(new Map());
   const [groupFilter, setGroupFilter] = useState<Set<number>>(new Set());
   const lastToggleRef = useRef<number>(0);
+  const pendingExtensionCloseIdsRef = useRef<Set<number>>(new Set());
 
   const hide = useCallback(() => {
     setAnimatingIn(false);
@@ -230,6 +233,7 @@ export function useHudState(): HudState {
     displayTabs, duplicateMap, duplicateUrls, duplicateCount,
     isCommandMode, commandQuery,
     fetchTabs, fetchRecentTabs,
+    pendingExtensionCloseIdsRef,
   };
 }
 

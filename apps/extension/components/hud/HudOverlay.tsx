@@ -72,7 +72,7 @@ export function HudOverlay() {
 
   // Listen for messages from background
   useEffect(() => {
-    const listener = (message: { type: string; tabId?: number }) => {
+    const listener = (message: { type: string; tabId?: number; title?: string }) => {
       if (message.type === 'toggle-hud') {
         const now = Date.now();
         const timeSinceLastToggle = now - s.lastToggleRef.current;
@@ -111,6 +111,14 @@ export function HudOverlay() {
       }
 
       if (message.type === 'tab-removed' && s.visible && message.tabId) {
+        if (s.pendingExtensionCloseIdsRef.current.has(message.tabId)) {
+          // Extension-initiated close — toast already shown by closeTab(), just clean up
+          s.pendingExtensionCloseIdsRef.current.delete(message.tabId);
+        } else if (message.title) {
+          // Chrome-native close — show UndoToast using title sent by background
+          const t = message.title;
+          s.setUndoToast({ message: `Closed "${t.length > 30 ? t.slice(0, 30) + '…' : t}"` });
+        }
         s.setTabs((prev) => prev.filter((t) => t.tabId !== message.tabId));
         s.setSelectedTabs((prev) => {
           if (!prev.has(message.tabId!)) return prev;

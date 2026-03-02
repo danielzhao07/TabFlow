@@ -45,6 +45,8 @@ export function useTabActions(s: HudState): TabActions {
 
   const closeTab = useCallback((tabId: number) => {
     const closedTab = s.tabs.find((t) => t.tabId === tabId);
+    // Mark as extension-initiated so the 'tab-removed' broadcast handler skips the toast
+    s.pendingExtensionCloseIdsRef.current.add(tabId);
     chrome.runtime.sendMessage({ type: 'close-tab', payload: { tabId } });
     s.setTabs((prev) => {
       const next = prev.filter((t) => t.tabId !== tabId);
