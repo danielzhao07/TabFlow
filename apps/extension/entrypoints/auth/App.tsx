@@ -108,10 +108,6 @@ const STYLES = `
     from { opacity: 0; transform: translateY(22px) scale(0.97); }
     to   { opacity: 1; transform: translateY(0)   scale(1);    }
   }
-  @keyframes tf-field-in {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0);    }
-  }
   @keyframes tf-fade { from { opacity: 0; } to { opacity: 1; } }
   @keyframes tf-shimmer {
     0%   { transform: translateX(-120%) skewX(-20deg); }
@@ -251,12 +247,6 @@ const STYLES = `
     font-size: 11px; color: rgba(255,255,255,0.20); font-weight: 500;
     letter-spacing: 0.07em; text-transform: uppercase;
   }
-
-  /* Stagger field animations */
-  .tf-f0 { animation: tf-field-in 250ms cubic-bezier(0.16,1,0.3,1) both; animation-delay: 0ms;   }
-  .tf-f1 { animation: tf-field-in 250ms cubic-bezier(0.16,1,0.3,1) both; animation-delay: 55ms;  }
-  .tf-f2 { animation: tf-field-in 250ms cubic-bezier(0.16,1,0.3,1) both; animation-delay: 110ms; }
-  .tf-f3 { animation: tf-field-in 250ms cubic-bezier(0.16,1,0.3,1) both; animation-delay: 165ms; }
 
   .tf-label {
     display: block; font-size: 11.5px; font-weight: 500;
@@ -468,7 +458,7 @@ export function App() {
                       </div>
                     </div>
 
-                    <div className="tf-f0">
+                    <div>
                       <label className="tf-label">Verification code</label>
                       <input
                         className="tf-input-code"
@@ -490,7 +480,7 @@ export function App() {
                       </div>
                     )}
 
-                    <div className="tf-f1">
+                    <div>
                       <button className="tf-btn" type="submit" disabled={loading || code.length < 6}>
                         {loading ? <Spinner /> : <span>Verify email <ArrowIcon /></span>}
                       </button>
@@ -507,17 +497,15 @@ export function App() {
                   /* ─ Sign in / Sign up view ─ */
                   <>
                     {/* Google */}
-                    <div className="tf-f0">
-                      <button
-                        className="tf-google-btn"
-                        type="button"
-                        onClick={handleGoogleSignIn}
-                        disabled={anyLoading}
-                      >
-                        {googleLoading ? <Spinner /> : <GoogleIcon />}
-                        Continue with Google
-                      </button>
-                    </div>
+                    <button
+                      className="tf-google-btn"
+                      type="button"
+                      onClick={handleGoogleSignIn}
+                      disabled={anyLoading}
+                    >
+                      {googleLoading ? <Spinner /> : <GoogleIcon />}
+                      Continue with Google
+                    </button>
 
                     <div className="tf-divider"><span>or</span></div>
 
@@ -527,7 +515,7 @@ export function App() {
                       onSubmit={view === 'signin' ? handleSignIn : handleSignUp}
                       style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
                     >
-                      <div className="tf-f1">
+                      <div>
                         <label className="tf-label">Email address</label>
                         <div className="tf-input-wrap">
                           <span className="tf-input-icon"><EmailIcon /></span>
@@ -544,7 +532,7 @@ export function App() {
                         </div>
                       </div>
 
-                      <div className="tf-f2">
+                      <div>
                         <label className="tf-label">Password</label>
                         <div className="tf-input-wrap">
                           <span className="tf-input-icon"><LockIcon /></span>
@@ -573,7 +561,7 @@ export function App() {
                       </div>
 
                       {view === 'signup' && (
-                        <div className="tf-f3">
+                        <div>
                           <label className="tf-label">Confirm password</label>
                           <div className="tf-input-wrap">
                             <span className="tf-input-icon"><LockIcon /></span>
@@ -592,7 +580,7 @@ export function App() {
 
                       {error && <div className="tf-error">{error}</div>}
 
-                      <div className="tf-f3" style={{ marginTop: 6 }}>
+                      <div style={{ marginTop: 6 }}>
                         <button className="tf-btn" type="submit" disabled={anyLoading}>
                           {loading
                             ? <Spinner />

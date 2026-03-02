@@ -4,12 +4,18 @@ export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifest: {
     name: 'TabFlow',
-    description: 'Alt+Tab style tab switching with fuzzy search',
+    description: 'See all your open tabs as a beautiful visual grid. AI-powered tab assistant, instant organization, and smart tab management. Hit Alt+Q and take control of your browser.',
     version: '0.1.0',
+    icons: {
+      '16': 'icon-16.png',
+      '32': 'icon-32.png',
+      '48': 'icon-48.png',
+      '128': 'icon-128.png',
+    },
     permissions: ['tabs', 'activeTab', 'storage', 'favicon', 'sessions', 'tabGroups', 'alarms', 'identity', 'bookmarks'],
     host_permissions: ['<all_urls>'],
     web_accessible_resources: [
-      { resources: ['TabFlowV2.png', 'TabFlowV3.png'], matches: ['<all_urls>'] },
+      { resources: ['TabFlowV2.png', 'TabFlowV3.png', 'icon-16.png', 'icon-32.png', 'icon-48.png', 'icon-128.png'], matches: ['<all_urls>'] },
     ],
     commands: {
       'toggle-hud': {

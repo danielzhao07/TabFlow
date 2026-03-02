@@ -110,7 +110,16 @@ export function SettingsPanel({
           className="flex items-center justify-between px-4 py-3 shrink-0 rounded-t-2xl"
           style={{ ...DIVIDER, background: 'rgba(16,16,28,0.98)' }}
         >
-          <span className="text-[12px] font-medium text-white/60 tracking-wider uppercase">Settings</span>
+          <div className="flex items-center gap-2">
+            <div style={{ width: 34, height: 34, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img
+                src={chrome.runtime.getURL('TabFlowV3.png')}
+                alt=""
+                style={{ width: 48, height: 48, objectFit: 'contain', mixBlendMode: 'screen' }}
+              />
+            </div>
+            <span className="text-[12px] font-medium text-white/60 tracking-wider uppercase">Settings</span>
+          </div>
           <button
             onClick={onClose}
             className="w-5 h-5 rounded flex items-center justify-center text-white/25 hover:text-white/55 transition-colors"

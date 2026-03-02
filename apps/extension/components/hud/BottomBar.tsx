@@ -125,38 +125,32 @@ export function BottomBar({ query, onQueryChange, isAiMode, onAiClick, onAiSubmi
         )}
       </div>
 
-      {/* AI sparkle button — rotating border glow wrapper */}
-      <div className="ai-glow-btn">
-        {/* Rotating conic-gradient that forms the glowing border */}
-        <div className="ai-glow-spinner" />
-        <button
-          onClick={onAiClick}
-          title="AI tab agent (@)"
-          className="flex items-center justify-center rounded-lg transition-all"
-          style={{
-            position: 'relative',
-            zIndex: 1,
-            width: 30,
-            height: 30,
-            background: isAiMode ? 'rgba(40,30,80,0.97)' : 'rgba(14,12,28,0.95)',
-            color: isAiMode ? 'rgba(180,160,255,0.9)' : 'rgba(255,255,255,0.35)',
-          }}
-          onMouseEnter={(e) => {
-            if (!isAiMode) {
-              (e.currentTarget as HTMLElement).style.color = 'rgba(180,160,255,0.8)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!isAiMode) {
-              (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.35)';
-            }
-          }}
-        >
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-            <path d="M8 1l1.5 4.5L14 8l-4.5 1.5L8 15l-1.5-4.5L2 8l4.5-1.5L8 1z" fill="currentColor" />
-          </svg>
-        </button>
-      </div>
+      {/* AI sparkle button */}
+      <button
+        onClick={onAiClick}
+        title="AI tab agent (@)"
+        className="flex items-center justify-center rounded-lg transition-all shrink-0"
+        style={{
+          width: 30,
+          height: 30,
+          background: isAiMode ? 'rgba(40,30,80,0.97)' : 'rgba(40,35,65,0.80)',
+          color: isAiMode ? 'rgba(180,160,255,0.9)' : 'rgba(160,130,255,0.70)',
+        }}
+        onMouseEnter={(e) => {
+          if (!isAiMode) {
+            (e.currentTarget as HTMLElement).style.color = 'rgba(200,180,255,0.95)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isAiMode) {
+            (e.currentTarget as HTMLElement).style.color = 'rgba(160,130,255,0.70)';
+          }
+        }}
+      >
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1l1.5 4.5L14 8l-4.5 1.5L8 15l-1.5-4.5L2 8l4.5-1.5L8 1z" fill="currentColor" />
+        </svg>
+      </button>
     </div>
   );
 }

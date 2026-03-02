@@ -33,9 +33,18 @@ export function App() {
     <div className="min-h-screen bg-[#0a0a1a] text-white">
       <div className="max-w-xl mx-auto py-12 px-6">
         {/* Header */}
-        <div className="mb-10">
-          <h1 className="text-2xl font-bold mb-1">TabFlow Settings</h1>
-          <p className="text-sm text-white/40">Customize your tab switching experience</p>
+        <div className="mb-10 flex items-center gap-4">
+          <div style={{ width: 64, height: 64, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img
+              src={chrome.runtime.getURL('TabFlowV3.png')}
+              alt="TabFlow"
+              style={{ width: 90, height: 90, objectFit: 'contain', mixBlendMode: 'screen' }}
+            />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold mb-1">TabFlow Settings</h1>
+            <p className="text-sm text-white/40">Customize your tab switching experience</p>
+          </div>
         </div>
 
         {/* Keyboard Shortcut */}

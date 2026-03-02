@@ -51,38 +51,6 @@
   to { transform: rotate(360deg); }
 }
 
-/* AI button clockwise rotating border glow */
-.ai-glow-btn {
-  position: relative;
-  border-radius: 8px;
-  padding: 1px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.ai-glow-spinner {
-  position: absolute;
-  width: 200%;
-  height: 200%;
-  top: -50%;
-  left: -50%;
-  background: conic-gradient(
-    rgba(160, 140, 255, 0) 0deg,
-    rgba(200, 180, 255, 1) 60deg,
-    rgba(160, 140, 255, 0) 120deg,
-    rgba(160, 140, 255, 0) 360deg
-  );
-  animation: spin 3.5s linear infinite;
-}
-
-.ai-glow-btn:active .ai-glow-spinner {
-  animation-play-state: paused;
-}
-
-.ai-glow-btn button:active {
-  transform: scale(0.88);
-  transition: transform 80ms ease-out;
-}
 
 /* Active tab card: oversized 200% spinner (stays clipped by overflow:hidden parent) */
 .tab-glow-spin {
