@@ -248,6 +248,11 @@ export default defineBackground(() => {
     }
   });
 
+  // Window closed — notify HUDs so they refresh window strip + tab list
+  chrome.windows.onRemoved.addListener(() => {
+    broadcastSpecific({ type: 'tabs-updated' });
+  });
+
   // Tab attached to a window (cross-window drag, move-to-window)
   // Fires in the NEW window — ensure tab is in MRU with correct windowId and notify all HUDs.
   // Use pushToFront so the tab is added if it was never tracked (e.g. from another window session),

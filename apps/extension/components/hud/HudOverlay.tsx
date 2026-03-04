@@ -143,6 +143,9 @@ export function HudOverlay() {
       }
       if (message.type === 'tabs-updated' && s.visible && !aiExecutingRef.current) {
         s.fetchTabs();
+        chrome.runtime.sendMessage({ type: 'get-windows' }).then((res) => {
+          if (res?.windows) s.setOtherWindows(res.windows);
+        }).catch(() => {});
       }
       if (message.type === 'workspace-updated' && s.visible) {
         setWsRefreshKey((k) => k + 1);
