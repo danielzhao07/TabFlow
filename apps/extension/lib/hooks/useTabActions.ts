@@ -460,8 +460,9 @@ export function useTabActions(s: HudState): TabActions {
           await chrome.runtime.sendMessage({ type: 'open-url', payload: { url } }).catch(() => {});
         }
         // 2b. Legacy fallback: if record only has closedCount (old format), use sessions
-        if (!(record as { closedUrls?: string[] }).closedUrls && (record as { closedCount?: number }).closedCount) {
-          for (let i = 0; i < (record as { closedCount: number }).closedCount; i++) {
+        const legacyRecord = record as unknown as { closedUrls?: string[]; closedCount?: number };
+        if (!legacyRecord.closedUrls && legacyRecord.closedCount) {
+          for (let i = 0; i < legacyRecord.closedCount; i++) {
             await chrome.runtime.sendMessage({ type: 'reopen-last-closed', payload: { keepFocus: true } }).catch(() => {});
           }
         }

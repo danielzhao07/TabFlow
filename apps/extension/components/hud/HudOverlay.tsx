@@ -4,6 +4,7 @@ import { useTabActions } from '@/lib/hooks/useTabActions';
 import { useKeyboardNav } from '@/lib/hooks/useKeyboardNav';
 import { saveSettings } from '@/lib/settings';
 import type { TabFlowSettings } from '@/lib/settings';
+import type { UndoRecord } from '@/lib/types';
 import { TabGrid } from './TabGrid';
 import { BottomBar } from './BottomBar';
 import { WindowStrip } from './WindowStrip';
