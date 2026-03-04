@@ -686,6 +686,19 @@
             color: var(--primary)
         }
 
+        .flow-brand {
+            font-weight: 700;
+            font-style: italic;
+            padding-right: 3px;
+            margin-right: -3px;
+            background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 50%, var(--primary) 100%);
+            background-size: 200% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmer 4s ease-in-out infinite
+        }
+
         .feature-text h2 {
             font-size: 2rem;
             font-weight: 750;
@@ -1276,9 +1289,8 @@
             <p class="hero-sub fade-in fade-in-delay-2">
                 tab.flow gives you a stunning full-screen grid to search, organize, and switch tabs instantly.
             </p>
-            <span class="feature-label fade-in fade-in-delay-2" style="margin-top:4px;font-size:.92rem">Powered by flow,
-                your AI
-                assistant</span>
+            <span class="feature-label fade-in fade-in-delay-2" style="margin-top:4px;font-size:.92rem">Powered by <span
+                    class="flow-brand">flow</span>, your AI assistant</span>
             <div class="hero-ctas fade-in fade-in-delay-3">
                 <a href="https://chrome.google.com/webstore" class="btn btn-primary">
                     <svg class="chrome-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -1400,10 +1412,11 @@
                         </div>
                     </div>
                     <div class="feature-text">
-                        <span class="feature-label">Meet flow</span>
+                        <span class="feature-label">Meet <span class="flow-brand">flow</span></span>
                         <h2>Your AI tab assistant</h2>
-                        <p>Tell flow what you want in plain English. "Group my work tabs," "close everything from
-                            yesterday," or "save this as my research project." flow handles the rest.</p>
+                        <p>Just tell <span class="flow-brand">flow</span> what you need. Group your work tabs, close
+                            everything from yesterday, or save this session for later. <span
+                                class="flow-brand">flow</span> handles the rest.</p>
                     </div>
                 </div>
             </div>
@@ -1547,13 +1560,13 @@
     <section id="pricing" class="pricing">
         <div class="container">
             <div class="pricing-heading fade-in">
-                <h2>Free with no sign-up</h2>
+                <h2>Free. No Sign-Up.</h2>
                 <p>Every feature included. No tiers, no limits, no upsells.</p>
             </div>
             <div style="max-width:480px;margin:0 auto">
                 <div class="pricing-card featured fade-in">
                     <div class="pricing-badge">Everything Included</div>
-                    <h3>tab.flow Free</h3>
+                    <h3>tab.flow</h3>
                     <div class="pricing-price">$0 <span class="period">forever</span></div>
                     <p class="pricing-desc">All features, no restrictions, no account needed.</p>
                     <ul class="pricing-features">
@@ -1588,7 +1601,7 @@
                         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
                                 stroke-linecap="round" stroke-linejoin="round">
                                 <polyline points="20 6 9 17 4 12" />
-                            </svg>AI tab assistant</li>
+                            </svg><span>AI tab assistant <span class="flow-brand">flow</span></span></li>
                     </ul>
                     <a href="https://chrome.google.com/webstore" class="btn btn-primary">
                         <svg class="chrome-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -1645,8 +1658,8 @@
                     <button class="faq-question" aria-expanded="false">How does the AI assistant work?<span
                             class="faq-icon"></span></button>
                     <div class="faq-answer">
-                        <p>Type @ in the search bar to activate flow, your AI tab assistant. It understands natural
-                            language
+                        <p>Type @ in the search bar to activate <span class="flow-brand">flow</span>, your AI tab
+                            assistant. It understands natural language
                             commands like "group my GitHub tabs" or "close tabs I haven't used today." You provide your
                             own free Groq API key to get started.</p>
                     </div>
