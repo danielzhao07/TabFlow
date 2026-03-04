@@ -664,12 +664,24 @@ export default defineBackground(() => {
     }
 
     if (message.type === 'reopen-last-closed') {
+      const keepFocus = message.payload?.keepFocus === true;
+      const senderTabId = sender.tab?.id;
+      const senderWindowId = sender.tab?.windowId;
       chrome.sessions.getRecentlyClosed({ maxResults: 1 }).then((sessions) => {
         if (sessions.length > 0) {
           const session = sessions[0];
           const sessionId = session.tab?.sessionId ?? session.window?.sessionId;
           if (sessionId) {
             chrome.sessions.restore(sessionId).then(() => {
+              // If keepFocus is set, switch back to the tab/window that triggered the undo
+              // so the user stays on the same page with the HUD still visible.
+              if (keepFocus && senderTabId != null) {
+                chrome.tabs.update(senderTabId, { active: true }).then(() => {
+                  if (senderWindowId != null) {
+                    chrome.windows.update(senderWindowId, { focused: true }).catch(() => {});
+                  }
+                }).catch(() => {});
+              }
               sendResponse({ success: true });
             });
           } else {

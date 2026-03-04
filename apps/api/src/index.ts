@@ -1,5 +1,5 @@
 /**
- * Tab.Flow API Server
+ * tab.flow API Server
  *
  * Express.js backend providing:
  * - Cloud sync for workspaces, bookmarks, notes, and settings
@@ -79,7 +79,7 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 
 // ---- Start Server ----
 app.listen(PORT, () => {
-    console.log(`Tab.Flow API running on http://localhost:${PORT}`);
+    console.log(`tab.flow API running on http://localhost:${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`Auth: ${USE_AUTH ? 'AWS Cognito enabled' : 'Disabled (dev mode)'}`);
 });

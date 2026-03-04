@@ -1,5 +1,5 @@
 /**
- * Tab.Flow API client — talks to the Express.js backend at apps/api.
+ * tab.flow API client — talks to the Express.js backend at apps/api.
  * Sends Cognito Bearer token when signed in, falls back to x-device-id for local dev.
  */
 import { getValidToken } from './auth';

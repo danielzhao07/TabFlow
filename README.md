@@ -8,17 +8,17 @@
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT" />
 </p>
 
-# Tab.Flow
+# tab.flow
 
 A full-stack Chrome extension that replaces the browser's native tab switcher with an intelligent, keyboard-driven HUD overlay. Built as a monorepo with a **React 19 extension frontend**, a **Groq-powered AI tab assistant** (LLaMA 3.3 70B), an **Express.js v5 REST API**, **Neon serverless PostgreSQL**, and **AWS Cognito/S3** for auth and storage.
 
-<!-- ![Tab.Flow Demo](docs/demo.gif) -->
+<!-- ![tab.flow Demo](docs/demo.gif) -->
 
 ---
 
-## Why Tab.Flow?
+## Why tab.flow?
 
-Power users juggle dozens of tabs across multiple windows. The native Chrome tab bar doesn't scale — tabs shrink to unreadable slivers, and Ctrl+Tab cycles linearly instead of by recency. Tab.Flow solves this with:
+Power users juggle dozens of tabs across multiple windows. The native Chrome tab bar doesn't scale — tabs shrink to unreadable slivers, and Ctrl+Tab cycles linearly instead of by recency. tab.flow solves this with:
 
 - **MRU-first navigation** — tabs sorted by last access, not position
 - **Full-screen grid overlay** — inspired by Windows Alt+Tab, with live thumbnails
@@ -74,7 +74,7 @@ Power users juggle dozens of tabs across multiple windows. The native Chrome tab
 - Synced to cloud API when signed in
 
 ### Bookmarks
-- Dual system: local Tab.Flow bookmarks + Chrome native bookmarks via `chrome.bookmarks` API
+- Dual system: local tab.flow bookmarks + Chrome native bookmarks via `chrome.bookmarks` API
 - Star (★) badge shown on bookmarked tabs in the grid
 - Toggle via Ctrl+B or context menu; supports folder creation
 - Synced to cloud when signed in

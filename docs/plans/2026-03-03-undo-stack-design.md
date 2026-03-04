@@ -1,7 +1,7 @@
 # Undo Stack Design
 
 ## Goal
-Add Ctrl+Z undo for all reversible actions in Tab.Flow's HUD overlay.
+Add Ctrl+Z undo for all reversible actions in tab.flow's HUD overlay.
 
 ## Approach: Undo Stack with Action Records
 A stack of max 20 `UndoRecord` entries, each storing the action type, label, affected tab IDs, previous state, and timestamp. Ctrl+Z pops the stack and executes the inverse operation.

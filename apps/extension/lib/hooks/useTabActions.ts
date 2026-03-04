@@ -375,16 +375,21 @@ export function useTabActions(s: HudState): TabActions {
   }, [s]);
 
   const undo = useCallback(async () => {
-    const stack = s.undoStack;
-    if (stack.length === 0) return;
-    const record = stack[0];
-    s.setUndoStack((prev) => prev.slice(1));
+    // Read the latest stack via the functional updater to avoid stale closures
+    // (e.g. Ctrl+Z pressed before React re-renders after pushUndo).
+    let record: UndoRecord | undefined;
+    s.setUndoStack((prev) => {
+      if (prev.length === 0) return prev;
+      record = prev[0];
+      return prev.slice(1);
+    });
+    if (!record) return;
     s.setUndoToast(null);
 
     switch (record.type) {
       case 'close':
         for (let i = 0; i < record.closeCount; i++) {
-          await chrome.runtime.sendMessage({ type: 'reopen-last-closed' });
+          await chrome.runtime.sendMessage({ type: 'reopen-last-closed', payload: { keepFocus: true } });
         }
         s.fetchTabs();
         s.fetchRecentTabs();

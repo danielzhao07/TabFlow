@@ -335,7 +335,7 @@ export function HudOverlay() {
         {/* Top bar: logo + tab count + analytics (left) · gear (right) — in flow so grid doesn't overlap */}
         <div className="shrink-0 flex items-center justify-between px-4 pt-3 pb-1" style={{ zIndex: 2147483646 }}>
           <div className="flex items-center gap-3">
-            <span className="text-[11px] font-semibold text-white/40 tracking-wider uppercase">Tab.Flow</span>
+            <span className="text-[11px] font-semibold text-white/40 tracking-wider uppercase">tab.flow</span>
             <span
               className="text-[10px] text-white/20 px-1.5 py-0.5 rounded-md"
               style={{ background: 'rgba(255,255,255,0.06)' }}

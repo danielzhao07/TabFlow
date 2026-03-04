@@ -1,5 +1,5 @@
 /**
- * Database schema for Tab.Flow API.
+ * Database schema for tab.flow API.
  * Uses Drizzle ORM with PostgreSQL + pgvector for AI embeddings.
  */
 import { pgTable, uuid, text, timestamp, integer, jsonb, real, index, varchar } from 'drizzle-orm/pg-core';
