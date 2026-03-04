@@ -351,19 +351,24 @@ export default defineBackground(() => {
         if (pendingToggleId !== myToggleId) return;
         const realTab = mruList.find((t) => canSendMessage(t.url));
         if (!realTab) return;
+        // Set hudVisible IMMEDIATELY to block onActivated captures from
+        // snapshotting during the tab switch transition.
+        hudVisible = true;
         await chrome.tabs.update(realTab.tabId, { active: true }).catch(() => {});
         await chrome.windows.update(realTab.windowId, { focused: true }).catch(() => {});
-        if (pendingToggleId !== myToggleId) return;
-        // Brief pause so Chrome has time to activate the tab before we send the message
-        setTimeout(() => {
-          if (pendingToggleId !== myToggleId) return;
-          hudVisible = true;
-          hudTabId = realTab.tabId;
-          chrome.tabs.sendMessage(realTab.tabId, { type: 'toggle-hud' }).catch(() => {
-            hudVisible = false;
-            hudTabId = undefined;
-          });
-        }, 120);
+        if (pendingToggleId !== myToggleId) { hudVisible = false; return; }
+        // Brief pause so Chrome has time to activate the tab
+        await new Promise((r) => setTimeout(r, 120));
+        if (pendingToggleId !== myToggleId) { hudVisible = false; return; }
+        // Capture all windows with force (hudVisible is true, so normal captures are blocked)
+        await captureAllWindowsActiveTabs(true);
+        if (pendingToggleId !== myToggleId) { hudVisible = false; return; }
+        hudTabId = realTab.tabId;
+        chrome.tabs.sendMessage(realTab.tabId, { type: 'toggle-hud' }).catch(() => {
+          hudVisible = false;
+          hudTabId = undefined;
+          hudHideTime = Date.now();
+        });
         return;
       }
 
@@ -1252,11 +1257,12 @@ export default defineBackground(() => {
   });
 });
 
-async function captureThumbnail(tabId: number, windowId: number) {
-  // Block captures while the HUD is visible OR during its 180ms fade-out animation.
-  // hudHideTime adds a 500ms grace period after any hide event so we never snapshot
+async function captureThumbnail(tabId: number, windowId: number, force = false) {
+  // Block captures while the HUD is visible OR during its fade-out animation.
+  // hudHideTime adds an 800ms grace period after any hide event so we never snapshot
   // the overlay while it's still transitioning out.
-  if (hudVisible || Date.now() - hudHideTime < 500) return;
+  // force=true bypasses this check (used by captureAllWindowsActiveTabs before HUD opens).
+  if (!force && (hudVisible || Date.now() - hudHideTime < 800)) return;
   try {
     const tab = await chrome.tabs.get(tabId).catch(() => null);
     if (!tab || !canSendMessage(tab.url)) return;
@@ -1269,14 +1275,14 @@ async function captureThumbnail(tabId: number, windowId: number) {
 
 // Capture the active tab in every open window. Used on startup and before
 // the HUD opens so that thumbnails are available immediately for all windows.
-async function captureAllWindowsActiveTabs() {
+async function captureAllWindowsActiveTabs(force = false) {
   try {
     const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
     await Promise.all(windows.map(async (win) => {
       if (!win.id) return;
       const [active] = await chrome.tabs.query({ active: true, windowId: win.id });
       if (active?.id && canSendMessage(active.url)) {
-        await captureThumbnail(active.id, win.id);
+        await captureThumbnail(active.id, win.id, force);
       }
     }));
   } catch { /* windows/tabs may be unavailable */ }

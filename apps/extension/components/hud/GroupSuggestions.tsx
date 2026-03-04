@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { TabInfo } from '@/lib/types';
 import type { TabActions } from '@/lib/hooks/useTabActions';
-import { getDomain, getGroupTitle, getSmartSuggestions } from '@/lib/group-utils';
+import type { SmartSuggestion, GroupAddSuggestion } from '@/lib/group-utils';
+import { getDomain, getGroupTitle, getSmartSuggestions, getGroupAddSuggestions } from '@/lib/group-utils';
 
 const GROUP_COLORS: Record<string, string> = {
   blue: '#8ab4f8', cyan: '#78d9ec', green: '#81c995', yellow: '#fdd663',
@@ -21,14 +22,45 @@ export function GroupSuggestions({
   tabs, actions, selectedTabs, groupFilter, onGroupFilterToggle,
 }: GroupSuggestionsProps) {
   const [hoveredId, setHoveredId] = useState<number | string | null>(null);
+  const [suggestions, setSuggestions] = useState<SmartSuggestion[]>([]);
+  const [addSuggestions, setAddSuggestions] = useState<GroupAddSuggestion[]>([]);
+  const descCacheRef = useRef<Record<number, string>>({});
 
-  const suggestions = useMemo(() => {
+  // Compute suggestions: first from titles only, then enhanced with descriptions
+  useEffect(() => {
     const existingTitles = new Set<string>();
     for (const tab of tabs) {
       if (tab.groupId && tab.groupTitle) existingTitles.add(tab.groupTitle.toLowerCase());
     }
     const ungrouped = tabs.filter((t) => !t.groupId);
-    return getSmartSuggestions(ungrouped, existingTitles);
+    const grouped = tabs.filter((t) => !!t.groupId);
+
+    // Phase 1: immediate title-based suggestions
+    setSuggestions(getSmartSuggestions(ungrouped, existingTitles));
+    setAddSuggestions(getGroupAddSuggestions(ungrouped, grouped));
+
+    // Phase 2: fetch descriptions and re-compute with richer context
+    if (ungrouped.length < 2 && grouped.length === 0) return;
+    const allTabIds = tabs.map((t) => t.tabId);
+    // Only fetch descriptions for tabs we haven't cached yet
+    const uncachedIds = allTabIds.filter((id) => !(id in descCacheRef.current));
+    if (uncachedIds.length === 0) {
+      // All cached — re-run with full descriptions immediately
+      setSuggestions(getSmartSuggestions(ungrouped, existingTitles, descCacheRef.current));
+      setAddSuggestions(getGroupAddSuggestions(ungrouped, grouped, descCacheRef.current));
+      return;
+    }
+    let cancelled = false;
+    chrome.runtime.sendMessage({ type: 'get-tab-descriptions', payload: { tabIds: uncachedIds } })
+      .then((res) => {
+        if (cancelled) return;
+        const fetched: Record<number, string> = res?.descriptions ?? {};
+        Object.assign(descCacheRef.current, fetched);
+        setSuggestions(getSmartSuggestions(ungrouped, existingTitles, descCacheRef.current));
+        setAddSuggestions(getGroupAddSuggestions(ungrouped, grouped, descCacheRef.current));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, [tabs]);
 
   const existingGroups = useMemo(() => {
@@ -52,7 +84,7 @@ export function GroupSuggestions({
   const hasMultiSelect = effectiveSelectedCount > 1;
   const hasGroupedInSelection = hasMultiSelect && tabs.some((t) => selectedTabs!.has(t.tabId) && !!t.groupId);
 
-  if (suggestions.length === 0 && existingGroups.length === 0 && !hasMultiSelect) return null;
+  if (suggestions.length === 0 && existingGroups.length === 0 && addSuggestions.length === 0 && !hasMultiSelect) return null;
 
   return (
     <div
@@ -120,8 +152,43 @@ export function GroupSuggestions({
         );
       })}
 
+      {/* Add-to-group suggestions */}
+      {addSuggestions.length > 0 && existingGroups.length > 0 && (
+        <div className="w-px h-3.5 bg-white/10 shrink-0 mx-0.5" />
+      )}
+      {addSuggestions.map((sg) => {
+        const color = GROUP_COLORS[sg.groupColor] ?? '#9aa0a6';
+        const isHovered = hoveredId === `add-${sg.groupId}`;
+        return (
+          <button
+            key={`add-${sg.groupId}`}
+            className="flex items-center gap-2 px-2.5 shrink-0 rounded-md transition-all"
+            style={{
+              height: 26,
+              border: `1px solid ${isHovered ? color + '40' : color + '22'}`,
+              background: isHovered ? color + '18' : color + '0c',
+              boxShadow: isHovered ? `0 0 8px ${color}30` : 'none',
+              transition: 'background 150ms, border-color 150ms, box-shadow 150ms',
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={() => setHoveredId(`add-${sg.groupId}`)}
+            onMouseLeave={() => setHoveredId(null)}
+            onClick={() => actions.addToGroup(sg.tabIds, sg.groupId, sg.groupTitle, sg.groupColor)}
+            title={`Add ${sg.tabIds.length} tab${sg.tabIds.length > 1 ? 's' : ''} to "${sg.groupTitle}"`}
+          >
+            <span className="text-[11px] font-medium" style={{ color: isHovered ? color : 'rgba(255,255,255,0.55)' }}>
+              + {sg.groupTitle}
+            </span>
+            <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.25)' }}>
+              {sg.tabIds.length}
+            </span>
+          </button>
+        );
+      })}
+
       {/* Divider */}
-      {existingGroups.length > 0 && (suggestions.length > 0 || hasMultiSelect) && (
+      {(existingGroups.length > 0 || addSuggestions.length > 0) && (suggestions.length > 0 || hasMultiSelect) && (
         <div className="w-px h-3.5 bg-white/10 shrink-0 mx-0.5" />
       )}
 

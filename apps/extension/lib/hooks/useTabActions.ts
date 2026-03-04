@@ -31,6 +31,7 @@ export interface TabActions {
   reloadTab: (tabId: number) => void;
   groupTab: (tabId: number) => Promise<void>;
   ungroupTab: (tabId: number) => Promise<void>;
+  addToGroup: (tabIds: number[], groupId: number, groupTitle: string, groupColor: string) => Promise<void>;
   // Bulk actions for multi-select
   pinSelectedTabs: (pinned: boolean) => void;
   bookmarkSelectedTabs: () => Promise<void>;
@@ -349,6 +350,13 @@ export function useTabActions(s: HudState): TabActions {
     s.fetchTabs();
   }, [s, pushUndo]);
 
+  const addToGroup = useCallback(async (tabIds: number[], groupId: number, groupTitle: string, groupColor: string) => {
+    pushUndo({ type: 'group', label: `Added ${tabIds.length} tab${tabIds.length > 1 ? 's' : ''} to "${groupTitle}"`, timestamp: Date.now(), tabIds });
+    await chrome.runtime.sendMessage({ type: 'group-tabs', payload: { tabIds, title: groupTitle, color: groupColor, groupId } });
+    await new Promise<void>((r) => setTimeout(r, 150));
+    s.fetchTabs();
+  }, [s, pushUndo]);
+
   const pinSelectedTabs = useCallback((pinned: boolean) => {
     if (s.selectedTabs.size > 0) {
       pushUndo({ type: 'pin', label: pinned ? `Pinned ${s.selectedTabs.size} tabs` : `Unpinned ${s.selectedTabs.size} tabs`, timestamp: Date.now(), tabIds: [...s.selectedTabs], wasPinned: !pinned });
@@ -502,7 +510,7 @@ export function useTabActions(s: HudState): TabActions {
     groupSelectedTabs, ungroupSelectedTabs, dissolveGroup, toggleBookmark, saveNote,
     moveToWindow, reorderTabs, toggleMute, closeByDomain, groupSuggestionTabs,
     restoreSession, reopenLastClosed, selectAll, duplicateTab, moveToNewWindow,
-    moveSelectedToNewWindow, reloadTab, groupTab, ungroupTab,
+    moveSelectedToNewWindow, reloadTab, groupTab, ungroupTab, addToGroup,
     pinSelectedTabs, bookmarkSelectedTabs, muteSelectedTabs, duplicateSelectedTabs, reloadSelectedTabs,
     undo,
   };

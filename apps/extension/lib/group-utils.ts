@@ -189,17 +189,36 @@ export function getSmartGroupName(tabs: TabInfo[], descriptions?: Record<number,
 
 // Words that are too generic to form a meaningful cluster label
 const STOP_WORDS = new Set([
-  // Short connectors (most filtered by length ≥4 already)
+  // 3-letter connectors, pronouns, auxiliary verbs
+  'the', 'and', 'for', 'but', 'not', 'nor', 'yet', 'via', 'per',
+  'you', 'her', 'him', 'his', 'its', 'our', 'she', 'who', 'all', 'one',
+  'are', 'was', 'has', 'had', 'can', 'did', 'got', 'get', 'may', 'let',
+  'how', 'why', 'any', 'few', 'own', 'ago', 'now', 'too', 'off', 'out',
+  'are', 'ask', 'use', 'set', 'put', 'try', 'run', 'say', 'see', 'lot',
+  'way', 'day', 'man', 'men', 'two', 'due', 'new', 'old', 'big', 'top',
+  // 4-letter connectors and articles
   'this', 'that', 'with', 'from', 'into', 'over', 'under', 'about', 'through',
   'which', 'what', 'when', 'where', 'have', 'will', 'would', 'could', 'should',
   'they', 'them', 'their', 'your', 'mine', 'just', 'like', 'also', 'here',
   'then', 'than', 'most', 'some', 'more', 'much', 'each', 'such', 'been',
-  'does', 'done', 'were', 'been', 'have', 'make', 'take', 'give', 'keep',
-  // Web/UI noise
+  'does', 'done', 'were', 'have', 'make', 'take', 'give', 'keep', 'said',
+  'says', 'know', 'want', 'need', 'look', 'come', 'goes', 'went', 'came',
+  // 5+-letter common words that bleed through
+  'these', 'those', 'other', 'after', 'again', 'while', 'there', 'where',
+  'every', 'never', 'still', 'always', 'first', 'second', 'third', 'being',
+  'going', 'using', 'since', 'until', 'might', 'shall', 'ought', 'below',
+  'above', 'along', 'among', 'right', 'think', 'thing', 'world', 'place',
+  'great', 'large', 'small', 'before', 'between', 'around', 'during', 'across',
+  // Time words
+  'today', 'yesterday', 'tomorrow', 'daily', 'weekly', 'monthly',
+  'week', 'month', 'year', 'time', 'days', 'hours', 'minutes',
+  // Generic content/web noise
   'home', 'page', 'site', 'next', 'back', 'open', 'sign', 'view', 'show',
   'find', 'help', 'info', 'search', 'close', 'login', 'with', 'from',
-  // Content noise
   'part', 'step', 'full', 'free', 'best', 'news', 'post', 'read', 'blog',
+  'click', 'link', 'here', 'more', 'load', 'tabs', 'list', 'items',
+  'update', 'latest', 'recent', 'review', 'guide', 'learn', 'start',
+  'download', 'install', 'overview', 'getting', 'started',
 ]);
 
 function capitalize(s: string): string {
@@ -216,14 +235,14 @@ function titleWords(title: string): string[] {
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
-    .filter((w) => w.length >= 4 && !/^\d+$/.test(w));
+    .filter((w) => w.length >= 3 && !/^\d+$/.test(w));
 }
 
 function titleKeywords(title: string): string[] {
   return titleWords(title).filter((w) => !STOP_WORDS.has(w));
 }
 
-/** Adjacent keyword pairs from a title (both words must be ≥4 chars, non-stop) */
+/** Adjacent keyword pairs from a title (both words must be ≥3 chars, non-stop) */
 function titleBigrams(title: string): string[] {
   const words = titleWords(title);
   const bigrams: string[] = [];
@@ -301,4 +320,94 @@ export function getSmartSuggestions(tabs: TabInfo[], existingTitles: Set<string>
     .forEach(([d, ts]) => tryAdd(getGroupTitle(d), ts));
 
   return results;
+}
+
+// ── Add-to-group suggestions ────────────────────────────────────────────────
+
+export interface GroupAddSuggestion {
+  groupId: number;
+  groupTitle: string;
+  groupColor: string;
+  tabIds: number[];
+}
+
+/**
+ * Suggests ungrouped tabs that should be added to existing groups based on
+ * keyword overlap between the tab's title/description and the group's members.
+ */
+export function getGroupAddSuggestions(
+  ungroupedTabs: TabInfo[],
+  groupedTabs: TabInfo[],
+  descriptions?: Record<number, string>,
+): GroupAddSuggestion[] {
+  if (ungroupedTabs.length === 0 || groupedTabs.length === 0) return [];
+
+  const textForTab = (tab: TabInfo): string => {
+    const desc = descriptions?.[tab.tabId];
+    return desc ? `${tab.title} ${desc}` : tab.title;
+  };
+
+  // Build keyword frequency map per group (from member tabs + group title)
+  // Only "characteristic" keywords — those appearing in ≥2 members or in the group title — are used for matching.
+  // This prevents a single noisy tab from polluting the group's keyword fingerprint.
+  const groups = new Map<number, { title: string; color: string; memberCount: number; keywordFreq: Map<string, number>; titleKw: Set<string> }>();
+  for (const tab of groupedTabs) {
+    if (!tab.groupId) continue;
+    let g = groups.get(tab.groupId);
+    if (!g) {
+      g = {
+        title: tab.groupTitle || '',
+        color: tab.groupColor || 'cyan',
+        memberCount: 0,
+        keywordFreq: new Map(),
+        titleKw: new Set(titleKeywords(tab.groupTitle || '')),
+      };
+      groups.set(tab.groupId, g);
+    }
+    g.memberCount++;
+    for (const w of new Set(titleKeywords(textForTab(tab)))) {
+      g.keywordFreq.set(w, (g.keywordFreq.get(w) ?? 0) + 1);
+    }
+  }
+
+  // Match each ungrouped tab against each group's *characteristic* keyword set
+  // Characteristic = appears in ≥2 group members OR is in the group title
+  const candidates = new Map<number, number[]>(); // groupId → tabIds
+  for (const tab of ungroupedTabs) {
+    const tabKw = new Set(titleKeywords(textForTab(tab)));
+    for (const [gid, g] of groups) {
+      // Build the characteristic keyword set for this group
+      const charKw = new Set<string>();
+      for (const [w, freq] of g.keywordFreq) {
+        if (freq >= Math.max(2, Math.ceil(g.memberCount * 0.4))) charKw.add(w);
+      }
+      // Group title keywords are always characteristic
+      for (const w of g.titleKw) charKw.add(w);
+
+      // Need at least 2 overlapping characteristic keywords, OR 1 if the group title keyword overlaps
+      let overlap = 0;
+      let titleOverlap = 0;
+      for (const w of tabKw) {
+        if (charKw.has(w)) {
+          overlap++;
+          if (g.titleKw.has(w)) titleOverlap++;
+        }
+      }
+      const meetsThreshold = titleOverlap >= 1 || overlap >= 2;
+      if (meetsThreshold) {
+        const list = candidates.get(gid) ?? [];
+        list.push(tab.tabId);
+        candidates.set(gid, list);
+      }
+    }
+  }
+
+  // Build results sorted by candidate count
+  const results: GroupAddSuggestion[] = [];
+  for (const [gid, tabIds] of candidates) {
+    const g = groups.get(gid)!;
+    results.push({ groupId: gid, groupTitle: g.title, groupColor: g.color, tabIds });
+  }
+  results.sort((a, b) => b.tabIds.length - a.tabIds.length);
+  return results.slice(0, 4);
 }

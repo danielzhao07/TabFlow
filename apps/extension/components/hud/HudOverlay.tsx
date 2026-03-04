@@ -102,6 +102,17 @@ export function HudOverlay() {
                 ));
               }
             }).catch(() => {});
+            // Retry after 500ms to pick up captures that completed after initial fetch
+            // (e.g. tabs still loading, restricted-tab path captures)
+            setTimeout(() => {
+              chrome.runtime.sendMessage({ type: 'get-all-thumbnails' }).then((res) => {
+                if (res?.thumbnails) {
+                  s.setThumbnails(new Map(
+                    Object.entries(res.thumbnails).map(([k, v]) => [Number(k), v as string])
+                  ));
+                }
+              }).catch(() => {});
+            }, 500);
             checkHealth().catch(() => {});
             getStoredTokens().then(setAuthUser);
             return true;
