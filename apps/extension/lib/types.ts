@@ -36,5 +36,5 @@ export type UndoRecord = {
   | { type: 'bookmark'; url: string; title: string; faviconUrl: string; wasBookmarked: boolean }
   | { type: 'mute'; tabIds: number[]; wasMuted: boolean }
   | { type: 'group'; tabIds: number[] }
-  | { type: 'ungroup'; tabIds: number[]; groupTitle: string; groupColor: string }
+  | { type: 'ungroup'; groups: Array<{ groupId: number; tabIds: number[]; groupTitle: string; groupColor: string }> }
 );

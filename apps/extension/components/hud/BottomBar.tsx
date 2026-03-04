@@ -1,4 +1,23 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
+
+const FLOW_HINTS = [
+  'search your tabs',
+  'ask flow to group your work tabs together',
+  'search your tabs',
+  'ask flow to close all duplicate tabs',
+  'search your tabs',
+  'ask flow to mute everything making noise',
+  'ask flow to open YouTube and search for lo-fi',
+  'search your tabs',
+  'ask flow to free up memory',
+  'ask flow to close all social media tabs',
+  'search your tabs',
+  'ask flow to bookmark all research tabs',
+  'ask flow to merge all windows into one',
+  'search your tabs',
+  'ask flow to move GitHub tabs to a new window',
+  'ask flow to pin your most-visited tab',
+];
 
 interface BottomBarProps {
   query: string;
@@ -13,9 +32,12 @@ export function BottomBar({ query, onQueryChange, isAiMode, onAiClick, onAiSubmi
   const inputRef = useRef<HTMLInputElement>(null);
   const historyIdxRef = useRef(-1);
   const savedInputRef = useRef('');
+  const hintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [hintIdx, setHintIdx] = useState(() => Math.floor(Math.random() * FLOW_HINTS.length));
+  const [hintVisible, setHintVisible] = useState(true);
 
   useEffect(() => {
-    // Use rAF to ensure focus happens after the browser has painted and focus is grantable
     requestAnimationFrame(() => { inputRef.current?.focus(); });
   }, []);
 
@@ -23,14 +45,33 @@ export function BottomBar({ query, onQueryChange, isAiMode, onAiClick, onAiSubmi
     requestAnimationFrame(() => { inputRef.current?.focus(); });
   }, [isAiMode]);
 
-  // Reset history navigation when AI mode toggles
   useEffect(() => {
     historyIdxRef.current = -1;
     savedInputRef.current = '';
   }, [isAiMode]);
 
+  // Cycle hints every 4s when the search bar is idle
+  useEffect(() => {
+    if (isAiMode || query.length > 0) {
+      if (hintTimeoutRef.current) { clearTimeout(hintTimeoutRef.current); hintTimeoutRef.current = null; }
+      return;
+    }
+    setHintVisible(true);
+    const interval = setInterval(() => {
+      setHintVisible(false);
+      hintTimeoutRef.current = setTimeout(() => {
+        setHintIdx((i) => (i + 1) % FLOW_HINTS.length);
+        setHintVisible(true);
+        hintTimeoutRef.current = null;
+      }, 300);
+    }, 10000);
+    return () => {
+      clearInterval(interval);
+      if (hintTimeoutRef.current) { clearTimeout(hintTimeoutRef.current); hintTimeoutRef.current = null; }
+    };
+  }, [isAiMode, query]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Reset history navigation on manual typing
     historyIdxRef.current = -1;
     const val = e.target.value;
     if (!isAiMode && val === '@' && onAiClick) {
@@ -50,12 +91,10 @@ export function BottomBar({ query, onQueryChange, isAiMode, onAiClick, onAiSubmi
       return;
     }
 
-    // Prompt history navigation (only in AI mode)
     if (isAiMode && promptHistory && promptHistory.length > 0) {
       if (e.key === 'ArrowUp') {
         e.preventDefault();
         if (historyIdxRef.current === -1) {
-          // Save current input before navigating
           savedInputRef.current = query;
           historyIdxRef.current = 0;
         } else if (historyIdxRef.current < promptHistory.length - 1) {
@@ -86,11 +125,9 @@ export function BottomBar({ query, onQueryChange, isAiMode, onAiClick, onAiSubmi
       <div
         className="flex-1 flex items-center gap-2 rounded-xl border px-3 py-2 transition-colors"
         style={{
-          background: 'rgba(255,255,255,0.04)',
-          borderColor: isAiMode ? 'rgba(160,140,255,0.5)' : 'rgba(99,179,237,0.35)',
-          boxShadow: isAiMode
-            ? '0 0 10px rgba(160,140,255,0.15)'
-            : '0 0 10px rgba(99,179,237,0.12)',
+          background: 'rgba(255,255,255,0.05)',
+          borderColor: isAiMode ? 'rgba(160,140,255,0.4)' : 'rgba(255,255,255,0.1)',
+          boxShadow: isAiMode ? '0 0 10px rgba(160,140,255,0.12)' : 'none',
         }}
       >
         {isAiMode ? (
@@ -102,17 +139,50 @@ export function BottomBar({ query, onQueryChange, isAiMode, onAiClick, onAiSubmi
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         )}
-        <input
-          ref={inputRef}
-          type="text"
-          value={query}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          placeholder={isAiMode ? 'Ask AI to manage your tabs…' : 'Search tabs...'}
-          className="flex-1 bg-transparent text-[13px] placeholder-white/20 outline-none"
-          style={{ color: isAiMode ? 'rgba(200,190,255,0.85)' : 'rgba(255,255,255,0.7)' }}
-          {...(!isAiMode ? { 'data-hud-search': 'true' } : {})}
-        />
+
+        {/* Input + animated hint overlay */}
+        <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            placeholder={isAiMode ? 'Ask flow anything…' : ''}
+            className="bg-transparent text-[13px] placeholder-white/20 outline-none"
+            style={{ color: isAiMode ? 'rgba(200,190,255,0.85)' : 'rgba(255,255,255,0.7)', width: '100%' }}
+            {...(!isAiMode ? { 'data-hud-search': 'true' } : {})}
+          />
+          {/* Rotating hint — only shown when idle in normal search mode */}
+          {!isAiMode && query.length === 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                pointerEvents: 'none',
+                opacity: hintVisible ? 1 : 0,
+                transition: 'opacity 300ms ease',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 13,
+                  color: 'rgba(255,255,255,0.28)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: '100%',
+                  display: 'block',
+                }}
+              >
+                {FLOW_HINTS[hintIdx] === 'search your tabs' ? 'search your tabs' : `type @ to ${FLOW_HINTS[hintIdx]}`}
+              </span>
+            </div>
+          )}
+        </div>
+
         {query && (
           <button
             onClick={() => onQueryChange('')}
@@ -125,12 +195,12 @@ export function BottomBar({ query, onQueryChange, isAiMode, onAiClick, onAiSubmi
         )}
       </div>
 
-      {/* AI sparkle button — purple spinning border */}
+      {/* flow sparkle button */}
       <div className="ai-glow-btn shrink-0" style={{ width: 30, height: 30 }}>
         <div className="ai-glow-spinner" />
         <button
           onClick={onAiClick}
-          title="AI tab agent (@)"
+          title="Ask flow (@)"
           className="flex items-center justify-center transition-all"
           style={{
             width: '100%',

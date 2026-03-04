@@ -467,25 +467,44 @@ export default defineBackground(() => {
     }
 
     if (message.type === 'group-tabs') {
-      const { tabIds, title, color } = message.payload;
+      const { tabIds, title, color, groupId: targetGroupId } = message.payload;
       (async () => {
         try {
-          const groupId = await chrome.tabs.group({ tabIds });
-          if (title) await chrome.tabGroups.update(groupId, { title, color: color || 'cyan' });
-          else await chrome.tabGroups.update(groupId, { color: color || 'cyan' });
+          // Filter to tabs that still exist (undo records may reference since-closed tabs)
+          const checks = await Promise.allSettled((tabIds as number[]).map((id: number) => chrome.tabs.get(id)));
+          const validTabIds = (tabIds as number[]).filter((_id, i) => checks[i].status === 'fulfilled');
+          if (validTabIds.length === 0) { sendResponse({ success: false }); return; }
+          // If a targetGroupId is provided (undo path), try to add tabs back into the existing group.
+          // If that group no longer exists (it was fully dissolved), fall back to creating a new group.
+          let resolvedGroupId: number;
+          if (targetGroupId != null) {
+            try {
+              await chrome.tabGroups.get(targetGroupId); // verify the group still exists
+              resolvedGroupId = await chrome.tabs.group({ tabIds: validTabIds, groupId: targetGroupId });
+            } catch {
+              // Original group gone — create a new one with the same title/color
+              resolvedGroupId = await chrome.tabs.group({ tabIds: validTabIds });
+              if (title) await chrome.tabGroups.update(resolvedGroupId, { title, color: color || 'cyan' });
+              else await chrome.tabGroups.update(resolvedGroupId, { color: color || 'cyan' });
+            }
+          } else {
+            resolvedGroupId = await chrome.tabs.group({ tabIds: validTabIds });
+            if (title) await chrome.tabGroups.update(resolvedGroupId, { title, color: color || 'cyan' });
+            else await chrome.tabGroups.update(resolvedGroupId, { color: color || 'cyan' });
+          }
           // Explicitly update MRU for each tab so groupId is visible immediately when fetchTabs runs
           try {
-            const group = await chrome.tabGroups.get(groupId);
-            for (const tabId of tabIds) {
+            const group = await chrome.tabGroups.get(resolvedGroupId);
+            for (const tabId of validTabIds) {
               await updateTab(tabId, {
-                groupId,
+                groupId: resolvedGroupId,
                 groupTitle: group.title || '',
                 groupColor: group.color,
               });
             }
           } catch { /* group info update best-effort */ }
           broadcastUpdate();
-          sendResponse({ success: true, groupId });
+          sendResponse({ success: true, groupId: resolvedGroupId });
         } catch {
           sendResponse({ success: false });
         }
@@ -508,8 +527,17 @@ export default defineBackground(() => {
       const { tabIds } = message.payload;
       (async () => {
         try {
-          await chrome.tabs.ungroup(tabIds);
-          // Clear groupId from MRU so fetchTabs returns clean data
+          // Only ungroup tabs that exist and are actually in a group
+          // chrome.tabs.ungroup throws if passed a tab not in any group
+          const checks = await Promise.allSettled((tabIds as number[]).map((id: number) => chrome.tabs.get(id)));
+          const toUngroup = (tabIds as number[]).filter((_id, i) =>
+            checks[i].status === 'fulfilled' &&
+            (checks[i] as PromiseFulfilledResult<chrome.tabs.Tab>).value.groupId !== -1
+          );
+          if (toUngroup.length > 0) {
+            await chrome.tabs.ungroup(toUngroup);
+          }
+          // Clear groupId from MRU for all requested tabs
           for (const tabId of tabIds) {
             await updateTab(tabId, { groupId: undefined, groupTitle: undefined, groupColor: undefined });
           }

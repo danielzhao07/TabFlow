@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { TabInfo } from '@/lib/types';
 import type { TabActions } from '@/lib/hooks/useTabActions';
+import { getDomain, getGroupTitle } from '@/lib/group-utils';
 
 const GROUP_COLORS: Record<string, string> = {
   blue: '#8ab4f8', cyan: '#78d9ec', green: '#81c995', yellow: '#fdd663',
@@ -16,16 +17,18 @@ interface GroupSuggestionsProps {
   onGroupFilterToggle?: (groupId: number) => void;
 }
 
-function getDomain(url: string): string {
-  try { return new URL(url).hostname.replace('www.', ''); } catch { return ''; }
-}
-
 export function GroupSuggestions({
   tabs, actions, selectedTabs, groupFilter, onGroupFilterToggle,
 }: GroupSuggestionsProps) {
   const [hoveredId, setHoveredId] = useState<number | string | null>(null);
 
   const suggestions = useMemo(() => {
+    // Collect existing group titles (lower-cased) to avoid naming conflicts
+    const existingTitles = new Set<string>();
+    for (const tab of tabs) {
+      if (tab.groupId && tab.groupTitle) existingTitles.add(tab.groupTitle.toLowerCase());
+    }
+
     const domainMap = new Map<string, TabInfo[]>();
     for (const tab of tabs) {
       if (tab.groupId) continue;
@@ -36,7 +39,11 @@ export function GroupSuggestions({
       else domainMap.set(d, [tab]);
     }
     return [...domainMap.entries()]
-      .filter(([, tabList]) => tabList.length >= 2)
+      .filter(([domain, tabList]) => {
+        if (tabList.length < 2) return false;
+        // Skip if a group with this generated title already exists
+        return !existingTitles.has(getGroupTitle(domain).toLowerCase());
+      })
       .sort((a, b) => b[1].length - a[1].length)
       .slice(0, 4);
   }, [tabs]);
@@ -199,7 +206,7 @@ export function GroupSuggestions({
           onClick={() => actions.groupSuggestionTabs(tabList.map((t) => t.tabId), domain)}
           title={`Group ${tabList.length} ${domain} tabs`}
         >
-          <span className="text-[11px] text-white/35">{domain}</span>
+          <span className="text-[11px] text-white/35">{getGroupTitle(domain)}</span>
           <span className="text-[10px] text-white/20">{tabList.length}</span>
         </button>
       ))}

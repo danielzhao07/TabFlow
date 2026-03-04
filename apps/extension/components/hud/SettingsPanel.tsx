@@ -330,9 +330,9 @@ export function SettingsPanel({
             )}
           </div>
 
-          {/* AI Agent section */}
+          {/* flow section */}
           <div className="py-2.5">
-            <SectionHeader>AI Agent</SectionHeader>
+            <SectionHeader>flow</SectionHeader>
             {settings !== null && (
               <div className="flex flex-col gap-1 mt-1.5">
                 <input
@@ -358,7 +358,7 @@ export function SettingsPanel({
                   >
                     console.groq.com/keys
                   </a>
-                  {' '}· Type @ in search to use
+                  {' '}· Type @ to chat with flow
                 </span>
               </div>
             )}

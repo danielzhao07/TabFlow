@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import type { TabBookmark } from '@/lib/bookmarks';
 import type { UndoRecord } from '@/lib/types';
 import type { HudState } from './useHudState';
+import { getDomain, getGroupTitle } from '@/lib/group-utils';
 
 export interface TabActions {
   switchToTab: (tabId: number) => void;
@@ -181,7 +182,7 @@ export function useTabActions(s: HudState): TabActions {
     const usedColors = new Set(s.tabs.filter((t) => t.groupColor).map((t) => t.groupColor!));
     const color = pickGroupColor(topDomain, usedColors);
     pushUndo({ type: 'group', label: `Grouped ${tabIds.length} tabs`, timestamp: Date.now(), tabIds });
-    await chrome.runtime.sendMessage({ type: 'group-tabs', payload: { tabIds, title: topDomain.split('.')[0] || '', color } });
+    await chrome.runtime.sendMessage({ type: 'group-tabs', payload: { tabIds, title: getGroupTitle(topDomain), color } });
     s.setSelectedTabs(new Set());
     s.fetchTabs();
   }, [s, pushUndo]);
@@ -191,10 +192,23 @@ export function useTabActions(s: HudState): TabActions {
       ? [...s.selectedTabs]
       : s.displayTabs[s.selectedIndex] ? [s.displayTabs[s.selectedIndex].tabId] : [];
     if (tabIds.length === 0) return;
-    // Save group info for undo
-    const groupTab = tabIds.map((id) => s.tabs.find((t) => t.tabId === id)).find((t) => t?.groupId != null);
-    pushUndo({ type: 'ungroup', label: `Ungrouped ${tabIds.length} tabs`, timestamp: Date.now(), tabIds, groupTitle: groupTab?.groupTitle || '', groupColor: groupTab?.groupColor || 'blue' });
-    await chrome.runtime.sendMessage({ type: 'ungroup-tabs', payload: { tabIds } });
+    // Build per-original-group undo entries (skip tabs not in any group)
+    const groupMap = new Map<number, { groupId: number; tabIds: number[]; groupTitle: string; groupColor: string }>();
+    for (const id of tabIds) {
+      const tab = s.tabs.find((t) => t.tabId === id);
+      if (tab?.groupId != null) {
+        if (!groupMap.has(tab.groupId)) {
+          groupMap.set(tab.groupId, { groupId: tab.groupId, tabIds: [], groupTitle: tab.groupTitle || '', groupColor: tab.groupColor || 'blue' });
+        }
+        groupMap.get(tab.groupId)!.tabIds.push(id);
+      }
+    }
+    const groups = [...groupMap.values()];
+    if (groups.length === 0) return; // nothing to ungroup
+    pushUndo({ type: 'ungroup', label: `Ungrouped ${tabIds.length} tabs`, timestamp: Date.now(), groups });
+    // Only send tabs that are actually in a group — chrome.tabs.ungroup throws for ungrouped tabs
+    const groupedTabIds = groups.flatMap((g) => g.tabIds);
+    await chrome.runtime.sendMessage({ type: 'ungroup-tabs', payload: { tabIds: groupedTabIds } });
     s.setSelectedTabs(new Set());
     s.fetchTabs();
   }, [s, pushUndo]);
@@ -204,7 +218,7 @@ export function useTabActions(s: HudState): TabActions {
     const tabIds = groupTabs.map((t) => t.tabId);
     if (tabIds.length === 0) return;
     const firstTab = groupTabs[0];
-    pushUndo({ type: 'ungroup', label: `Dissolved group`, timestamp: Date.now(), tabIds, groupTitle: firstTab?.groupTitle || '', groupColor: firstTab?.groupColor || 'blue' });
+    pushUndo({ type: 'ungroup', label: `Dissolved group`, timestamp: Date.now(), groups: [{ groupId, tabIds, groupTitle: firstTab?.groupTitle || '', groupColor: firstTab?.groupColor || 'blue' }] });
     await chrome.runtime.sendMessage({ type: 'ungroup-tabs', payload: { tabIds } });
     s.setGroupFilter((prev) => { const next = new Set(prev); next.delete(groupId); return next; });
     s.fetchTabs();
@@ -270,7 +284,7 @@ export function useTabActions(s: HudState): TabActions {
   const groupSuggestionTabs = useCallback(async (tabIds: number[], domain: string) => {
     const usedColors = new Set(s.tabs.filter((t) => t.groupColor).map((t) => t.groupColor!));
     const color = pickGroupColor(domain, usedColors);
-    await chrome.runtime.sendMessage({ type: 'group-tabs', payload: { tabIds, title: domain.split('.')[0] || domain, color } });
+    await chrome.runtime.sendMessage({ type: 'group-tabs', payload: { tabIds, title: getGroupTitle(domain), color } });
     await new Promise<void>((r) => setTimeout(r, 150));
     s.fetchTabs();
   }, [s]);
@@ -322,13 +336,15 @@ export function useTabActions(s: HudState): TabActions {
     const domain = getDomain(tab.url);
     const usedColors = new Set(s.tabs.filter((t) => t.groupColor).map((t) => t.groupColor!));
     const color = pickGroupColor(domain, usedColors);
-    await chrome.runtime.sendMessage({ type: 'group-tabs', payload: { tabIds: [tabId], title: domain.split('.')[0] || '', color } });
+    await chrome.runtime.sendMessage({ type: 'group-tabs', payload: { tabIds: [tabId], title: getGroupTitle(domain), color } });
     s.fetchTabs();
   }, [s, pushUndo]);
 
   const ungroupTab = useCallback(async (tabId: number) => {
     const tab = s.tabs.find((t) => t.tabId === tabId);
-    pushUndo({ type: 'ungroup', label: 'Ungrouped tab', timestamp: Date.now(), tabIds: [tabId], groupTitle: tab?.groupTitle || '', groupColor: tab?.groupColor || 'blue' });
+    if (tab?.groupId != null) {
+      pushUndo({ type: 'ungroup', label: 'Ungrouped tab', timestamp: Date.now(), groups: [{ groupId: tab.groupId, tabIds: [tabId], groupTitle: tab.groupTitle || '', groupColor: tab.groupColor || 'blue' }] });
+    }
     await chrome.runtime.sendMessage({ type: 'ungroup-tabs', payload: { tabIds: [tabId] } });
     s.fetchTabs();
   }, [s, pushUndo]);
@@ -427,8 +443,12 @@ export function useTabActions(s: HudState): TabActions {
         s.fetchTabs();
         break;
       case 'ungroup':
-        // Action was "ungroup tabs" → undo = re-group with saved title/color
-        await chrome.runtime.sendMessage({ type: 'group-tabs', payload: { tabIds: record.tabIds, title: record.groupTitle, color: record.groupColor } });
+        // Restore each original group — pass the original groupId so tabs merge back into
+        // the existing group rather than creating a new one. If the group was fully dissolved,
+        // the background falls back to creating a new group with the same title/color.
+        for (const g of record.groups) {
+          await chrome.runtime.sendMessage({ type: 'group-tabs', payload: { tabIds: g.tabIds, title: g.groupTitle, color: g.groupColor, groupId: g.groupId } });
+        }
         s.fetchTabs();
         break;
     }
@@ -443,10 +463,6 @@ export function useTabActions(s: HudState): TabActions {
     pinSelectedTabs, bookmarkSelectedTabs, muteSelectedTabs, duplicateSelectedTabs, reloadSelectedTabs,
     undo,
   };
-}
-
-function getDomain(url: string): string {
-  try { return new URL(url).hostname.replace('www.', ''); } catch { return url; }
 }
 
 const CHROME_COLORS = [

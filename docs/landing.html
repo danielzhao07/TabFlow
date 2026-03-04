@@ -29,7 +29,7 @@
             --primary: #3b82f6;
             --primary-hover: #2563eb;
             --primary-glow: rgba(59, 130, 246, 0.15);
-            --accent: #8b5cf6;
+            --accent: #38bdf8;
             --text: #e2e8f0;
             --text-secondary: #94a3b8;
             --text-muted: #475569;
@@ -679,16 +679,12 @@
 
         .feature-label {
             display: inline-block;
-            padding: 4px 12px;
-            background: rgba(59, 130, 246, .1);
-            color: var(--primary);
-            border-radius: 9999px;
-            font-size: .72rem;
+            font-size: .78rem;
             font-weight: 700;
-            letter-spacing: .06em;
+            letter-spacing: .08em;
             text-transform: uppercase;
             margin-bottom: 16px;
-            border: 1px solid rgba(59, 130, 246, .12)
+            color: var(--primary)
         }
 
         .feature-text h2 {
@@ -1281,7 +1277,7 @@
             <p class="hero-sub fade-in fade-in-delay-2">
                 tab.flow replaces Chrome's cluttered tab strip with a beautiful
                 full-screen grid. Search, organize, and switch tabs with fuzzy
-                search, keyboard shortcuts, and an AI assistant.
+                search, keyboard shortcuts, and a built-in AI assistant called flow.
             </p>
             <div class="hero-ctas fade-in fade-in-delay-3">
                 <a href="https://chrome.google.com/webstore" class="btn btn-primary">
@@ -1349,7 +1345,7 @@
                         </div>
                     </div>
                     <div class="feature-text">
-                        <span class="feature-label">Overview</span>
+                        <span class="feature-label">The Big Picture</span>
                         <h2>All your tabs in one beautiful grid</h2>
                         <p>See every open tab at a glance. One shortcut opens a stunning full-screen view of your entire
                             browser, beautifully laid out and ready to explore.</p>
@@ -1376,11 +1372,11 @@
                         </div>
                     </div>
                     <div class="feature-text">
-                        <span class="feature-label">Search</span>
+                        <span class="feature-label">Instant Search</span>
                         <h2>Find any tab in milliseconds</h2>
-                        <p>Just start typing. tab.flow instantly surfaces the tab you need, no matter how many you have
-                            open. Use quick filters like <code>is:pinned</code> or <code>domain:github.com</code> to
-                            narrow results.</p>
+                        <p>Got 50 tabs open and can't find the right one? Just start typing. tab.flow's
+                            fuzzy search instantly finds the tab you need, even if you only remember part of
+                            the name. No more clicking through tabs one by one.</p>
                     </div>
                 </div>
             </div>
@@ -1404,10 +1400,10 @@
                         </div>
                     </div>
                     <div class="feature-text">
-                        <span class="feature-label">AI Powered</span>
-                        <h2>Let AI organize your chaos</h2>
-                        <p>Tell tab.flow what you want in plain English. "Group my work tabs," "close everything from
-                            yesterday," or "save this as my research project." AI handles the rest.</p>
+                        <span class="feature-label">Meet flow</span>
+                        <h2>Your AI tab assistant</h2>
+                        <p>Tell flow what you want in plain English. "Group my work tabs," "close everything from
+                            yesterday," or "save this as my research project." flow handles the rest.</p>
                     </div>
                 </div>
             </div>
@@ -1431,7 +1427,7 @@
                         </div>
                     </div>
                     <div class="feature-text">
-                        <span class="feature-label">Organization</span>
+                        <span class="feature-label">Smart Groups</span>
                         <h2>Smart grouping, zero effort</h2>
                         <p>tab.flow spots patterns in your browsing and suggests smart groups automatically. One click
                             to organize, with colors that make sense at a glance.</p>
@@ -1458,7 +1454,7 @@
                         </div>
                     </div>
                     <div class="feature-text">
-                        <span class="feature-label">Workflow</span>
+                        <span class="feature-label">Workspaces</span>
                         <h2>Save your context, switch projects</h2>
                         <p>Working on multiple projects? Save your current tabs as a workspace and switch between them
                             instantly. Pick up right where you left off, every time.</p>
@@ -1485,7 +1481,7 @@
                         </div>
                     </div>
                     <div class="feature-text">
-                        <span class="feature-label">Power User</span>
+                        <span class="feature-label">Command Palette</span>
                         <h2>Commands at your fingertips</h2>
                         <p>Type <code>&gt;</code> to access powerful commands instantly. Close duplicates, sort tabs,
                             and dozens more. Full keyboard navigation keeps you in the flow.</p>
@@ -1506,9 +1502,7 @@
                 <div class="feature-card fade-in">
                     <div class="feature-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M18.36 6.64A9 9 0 0 1 20.77 15M6.16 6.16a9 9 0 1 0 12.68 12.68" />
-                            <path d="M12 2v4M2 12h4" />
-                            <circle cx="12" cy="12" r="2" />
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                         </svg></div>
                     <h3>Tab Suspender</h3>
                     <p>Automatically suspend inactive tabs to free up memory. Pinned and audible tabs are never touched.
@@ -1635,7 +1629,7 @@
                     <div class="faq-answer">
                         <p>Yes! All features, including the grid HUD, fuzzy search, tab groups, AI assistant,
                             workspaces, tab suspender, keyboard navigation, and command palette, are completely free
-                            with no sign-up required. tab.flow is open source under the MIT license.</p>
+                            with no sign-up required.</p>
                     </div>
                 </div>
                 <div class="faq-item fade-in">
@@ -1651,7 +1645,8 @@
                     <button class="faq-question" aria-expanded="false">How does the AI assistant work?<span
                             class="faq-icon"></span></button>
                     <div class="faq-answer">
-                        <p>Type @ in the search bar to activate the AI assistant. It understands natural language
+                        <p>Type @ in the search bar to activate flow, your AI tab assistant. It understands natural
+                            language
                             commands like "group my GitHub tabs" or "close tabs I haven't used today." You provide your
                             own free Groq API key to get started.</p>
                     </div>
