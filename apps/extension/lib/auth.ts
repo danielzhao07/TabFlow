@@ -135,9 +135,8 @@ export async function signIn(identityProvider?: string): Promise<TokenSet> {
   }
 
   // Exchange code via backend (backend holds the client secret)
-  // TODO: Replace 'http://localhost:3001' with your production Railway URL once deployed
   const stored = await chrome.storage.local.get('tabflow_api_url');
-  const apiUrl = (stored['tabflow_api_url'] as string) ?? 'http://localhost:3001';
+  const apiUrl = (stored['tabflow_api_url'] as string) ?? 'https://tabflow-production-c1a2.up.railway.app';
   const tokenRes = await fetch(`${apiUrl}/api/auth/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -166,9 +165,8 @@ export async function signIn(identityProvider?: string): Promise<TokenSet> {
 // ---- Direct password-based auth (proxied through backend) ----
 
 async function getApiBaseUrl(): Promise<string> {
-  // TODO: Replace 'http://localhost:3001' with your production Railway URL once deployed
   const result = await chrome.storage.local.get('tabflow_api_url');
-  return (result['tabflow_api_url'] as string) ?? 'http://localhost:3001';
+  return (result['tabflow_api_url'] as string) ?? 'https://tabflow-production-c1a2.up.railway.app';
 }
 
 async function apiPost(path: string, body: object): Promise<any> {
