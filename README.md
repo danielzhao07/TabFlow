@@ -12,8 +12,8 @@
 <p align="center">
   <a href="https://tabflow.tech">Website</a> &nbsp;&bull;&nbsp;
   <a href="#demo">Demo</a> &nbsp;&bull;&nbsp;
-  <a href="#tech-stack">Tech Stack</a> &nbsp;&bull;&nbsp;
   <a href="#features">Features</a> &nbsp;&bull;&nbsp;
+  <a href="#tech-stack">Tech Stack</a> &nbsp;&bull;&nbsp;
   <a href="#getting-started">Getting Started</a>
 </p>
 
@@ -31,64 +31,6 @@
 <p align="center">
   Free forever &nbsp;&middot;&nbsp; No sign up required &nbsp;&middot;&nbsp; Works on all Chromium browsers
 </p>
-
----
-
-<h2 id="tech-stack">Tech Stack</h2>
-
-### Extension (`apps/extension/`)
-
-| Technology | Purpose |
-|---|---|
-| **WXT 0.19** | Manifest V3 framework with shadow DOM content script and HMR dev server |
-| **React 19** | HUD overlay UI injected via content script |
-| **TypeScript 5.6** | End to end type safety |
-| **Tailwind CSS 3.4** | Utility first styling scoped to shadow DOM |
-| **Fuse.js 7** | Weighted fuzzy search (title 0.7, URL 0.3, notes 0.2) |
-| **Groq SDK** | LLaMA 3.3 70B AI tab assistant (client side, user's API key) |
-| **Chrome APIs** | tabs, tabGroups, sessions, storage, alarms, identity, bookmarks, captureVisibleTab |
-
-### API (`apps/api/`)
-
-| Technology | Purpose |
-|---|---|
-| **Express.js 5** | REST API server |
-| **TypeScript 5.7** | Shared type safety with the extension |
-| **Drizzle ORM** | Type safe SQL queries and schema migrations |
-| **postgres.js 3** | PostgreSQL driver (SSL for Neon serverless) |
-| **Zod** | Runtime request validation |
-| **express-jwt + jwks-rsa** | AWS Cognito JWT verification via JWKS rotation |
-| **Google Gemini** | `gemini-embedding-001` for 768 dim tab embeddings |
-
-### Infrastructure
-
-| Service | Purpose |
-|---|---|
-| **Neon** | Serverless PostgreSQL for workspaces, bookmarks, notes, analytics, and settings |
-| **AWS Cognito** | OAuth 2.0 Authorization Code + PKCE authentication |
-| **AWS S3** | Tab thumbnail storage with presigned URLs |
-| **Groq** | LLaMA 3.3 70B inference for the AI tab assistant |
-| **Google Gemini** | Embedding model for server side semantic search |
-
-### Architecture
-
-```
-TabFlow/
-├── apps/
-│   ├── extension/               # Chrome extension (WXT + React 19)
-│   │   ├── components/hud/      # HUD overlay, 12 components
-│   │   ├── entrypoints/         # background, content, popup, options, auth
-│   │   ├── lib/                 # Core logic: search, hooks, AI, storage
-│   │   └── assets/              # Global CSS + animations
-│   └── api/                     # Express.js v5 REST API
-│       └── src/
-│           ├── routes/          # auth, sync, ai, analytics, thumbnails
-│           ├── db/              # Drizzle ORM schema (7 tables)
-│           ├── middleware/      # Cognito JWT auth
-│           └── services/        # S3 client
-├── docs/                        # Website, privacy policy, terms
-└── package.json                 # pnpm monorepo scripts
-```
 
 ---
 
@@ -154,6 +96,44 @@ VIDEO_URL_HERE
 Type `>` to access powerful commands instantly. Close duplicates, sort tabs, pin groups, and more. Full keyboard navigation keeps you in the flow.
 
 VIDEO_URL_HERE
+
+---
+
+<h2 id="tech-stack">Tech Stack</h2>
+
+### Extension (`apps/extension/`)
+
+| Technology | Purpose |
+|---|---|
+| **WXT 0.19** | Manifest V3 framework with shadow DOM content script and HMR dev server |
+| **React 19** | HUD overlay UI injected via content script |
+| **TypeScript 5.6** | End to end type safety |
+| **Tailwind CSS 3.4** | Utility first styling scoped to shadow DOM |
+| **Fuse.js 7** | Weighted fuzzy search (title 0.7, URL 0.3, notes 0.2) |
+| **Groq SDK** | LLaMA 3.3 70B AI tab assistant (client side, user's API key) |
+| **Chrome APIs** | tabs, tabGroups, sessions, storage, alarms, identity, bookmarks, captureVisibleTab |
+
+### API (`apps/api/`)
+
+| Technology | Purpose |
+|---|---|
+| **Express.js 5** | REST API server |
+| **TypeScript 5.7** | Shared type safety with the extension |
+| **Drizzle ORM** | Type safe SQL queries and schema migrations |
+| **postgres.js 3** | PostgreSQL driver (SSL for Neon serverless) |
+| **Zod** | Runtime request validation |
+| **express-jwt + jwks-rsa** | AWS Cognito JWT verification via JWKS rotation |
+| **Google Gemini** | `gemini-embedding-001` for 768 dim tab embeddings |
+
+### Infrastructure
+
+| Service | Purpose |
+|---|---|
+| **Neon** | Serverless PostgreSQL for workspaces, bookmarks, notes, analytics, and settings |
+| **AWS Cognito** | OAuth 2.0 Authorization Code + PKCE authentication |
+| **AWS S3** | Tab thumbnail storage with presigned URLs |
+| **Groq** | LLaMA 3.3 70B inference for the AI tab assistant |
+| **Google Gemini** | Embedding model for server side semantic search |
 
 ---
 
