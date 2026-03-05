@@ -125,10 +125,35 @@ export default defineBackground(() => {
   // First install: auto-trigger sign-in popup + set uninstall feedback URL
   chrome.runtime.onInstalled.addListener(async ({ reason }) => {
     if (reason === 'install') {
-      chrome.runtime.setUninstallURL('https://danielzhao07github.io/TabFlow/goodbye.html');
+      chrome.runtime.setUninstallURL('https://tabflow.tech/goodbye');
+      // Open welcome page
+      chrome.tabs.create({ url: chrome.runtime.getURL('/welcome.html') });
       const existing = await getStoredTokens();
       if (!existing) {
         openAuthWindow().catch(() => {}); // user may cancel — that's fine
+      }
+      // Inject content script into all already-open tabs so users don't need to refresh
+      const tabs = await chrome.tabs.query({});
+      for (const tab of tabs) {
+        if (!tab.id || !tab.url) continue;
+        if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') ||
+            tab.url.startsWith('about:') || tab.url.startsWith('edge://') ||
+            tab.url.startsWith('devtools://')) continue;
+        // Check if already injected to avoid double-mounting
+        // tabflow-root is inside a shadow DOM, so check for the WXT host element instead
+        const [result] = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => !!document.querySelector('tabflow-hud'),
+        }).catch(() => [{ result: true }]); // if it fails, assume already there
+        if (result?.result) continue;
+        chrome.scripting.insertCSS({
+          target: { tabId: tab.id },
+          files: ['content-scripts/content.css']
+        }).catch(() => {});
+        chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content-scripts/content.js']
+        }).catch(() => {});
       }
     }
   });

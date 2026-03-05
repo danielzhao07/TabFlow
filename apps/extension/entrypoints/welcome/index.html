@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to tab.flow</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #08080e;
+      --primary: #3b82f6;
+      --accent: #38bdf8;
+      --text: #e2e8f0;
+      --text-secondary: #94a3b8;
+      --muted: #475569;
+      --border: rgba(255,255,255,0.07);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .page {
+      max-width: 520px;
+      padding: 48px 32px;
+      text-align: center;
+    }
+
+    .logo {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 8px;
+      filter: drop-shadow(0 0 24px rgba(59,130,246,0.2));
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+    }
+
+    .highlight {
+      color: var(--primary);
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 15px;
+      margin-bottom: 36px;
+    }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      text-align: left;
+      margin-bottom: 36px;
+    }
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+    }
+
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: rgba(59,130,246,0.12);
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .step-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .step-text strong {
+      color: var(--text);
+    }
+
+    kbd {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 5px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .note {
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 28px;
+      padding: 14px 18px;
+      border-radius: 10px;
+      background: rgba(59,130,246,0.1);
+      border: 1px solid rgba(59,130,246,0.25);
+      text-align: left;
+    }
+
+    .note strong {
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 28px;
+      border-radius: 10px;
+      background: var(--primary);
+      color: #fff;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 2px 12px rgba(59,130,246,0.25);
+    }
+
+    .btn:hover {
+      background: #2563eb;
+      box-shadow: 0 4px 20px rgba(59,130,246,0.35);
+    }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="page">
+    <img class="logo" src="/TabFlowV4.png" alt="tab.flow" />
+    <h1>Welcome to <span class="highlight">tab.flow</span></h1>
+    <p class="subtitle">Your tabs just got a whole lot smarter.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">Press <kbd>Alt</kbd> + <kbd>Q</kbd> on any page to open the HUD</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">Type to <strong>search</strong>, or <kbd>&gt;</kbd> for <strong>commands</strong></div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">Use <kbd>Ctrl</kbd> + click to <strong>multi select</strong> and group tabs</div>
+      </div>
+    </div>
+
+    <div class="note">
+      <strong>Tip:</strong> For the best experience, refresh any tabs you had open before installing.
+    </div>
+
+    <a class="btn" href="https://www.google.com">Start flowing</a>
+  </div>
+</body>
+</html>
