@@ -1,21 +1,46 @@
-MIT License
+Copyright (c) 2025-2026 Daniel Zhao. All rights reserved.
 
-Copyright (c) 2026 Daniel Zhao
+PROPRIETARY SOFTWARE LICENSE
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This software and associated documentation files (the "Software") are the
+exclusive property of Daniel Zhao (the "Author"). The Software is protected
+by copyright law and international treaties.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+RESTRICTIONS
+
+You may NOT, without the prior written consent of the Author:
+
+1. Copy, reproduce, or duplicate the Software or any portion thereof.
+2. Modify, adapt, translate, reverse engineer, decompile, or disassemble
+   the Software.
+3. Distribute, sublicense, lease, rent, loan, or otherwise transfer the
+   Software to any third party.
+4. Use the Software for any commercial purpose, including but not limited
+   to selling, licensing, or incorporating the Software into a commercial
+   product or service.
+5. Create derivative works based on the Software.
+6. Remove or alter any proprietary notices, labels, or marks on the Software.
+
+PERMITTED USE
+
+You may view the source code of this Software solely for personal,
+non-commercial reference and educational purposes. This permission does not
+grant any license to use, copy, modify, or distribute the Software or any
+portion thereof.
+
+DISCLAIMER
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+ENFORCEMENT
+
+Any unauthorized use, reproduction, or distribution of the Software may
+result in civil and criminal penalties. The Author reserves the right to
+pursue all available legal remedies.
+
+For licensing inquiries, contact: Daniel Zhao

@@ -1,35 +1,111 @@
 <p align="center">
+  <img src="apps/extension/public/TabFlowV4.png" alt="tab.flow logo" width="120" />
+</p>
+
+<h1 align="center">tab.flow</h1>
+
+<p align="center">
+  <strong>The tab manager Chrome deserves.</strong><br/>
+  A full-stack Chrome extension that replaces your browser's tab bar with a stunning, keyboard-driven grid overlay — powered by AI.
+</p>
+
+<p align="center">
+  <a href="https://tabflow.tech">Website</a> &nbsp;&bull;&nbsp;
+  <a href="#demo">Demo</a> &nbsp;&bull;&nbsp;
+  <a href="#features">Features</a> &nbsp;&bull;&nbsp;
+  <a href="#tech-stack">Tech Stack</a> &nbsp;&bull;&nbsp;
+  <a href="#getting-started">Getting Started</a>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/Manifest-V3-blue?logo=googlechrome&logoColor=white" alt="Manifest V3" />
   <img src="https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" />
   <img src="https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white" alt="Express 5" />
   <img src="https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql&logoColor=white" alt="Neon PostgreSQL" />
   <img src="https://img.shields.io/badge/Groq-LLaMA_3.3-F55036?logo=meta&logoColor=white" alt="Groq LLaMA 3.3" />
-  <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT" />
+  <img src="https://img.shields.io/badge/AWS-Cognito%20%7C%20S3-FF9900?logo=amazonaws&logoColor=white" alt="AWS" />
+  <img src="https://img.shields.io/badge/License-All%20Rights%20Reserved-red.svg" alt="License: All Rights Reserved" />
 </p>
-
-# tab.flow
-
-A full-stack Chrome extension that replaces the browser's native tab switcher with an intelligent, keyboard-driven HUD overlay. Built as a monorepo with a **React 19 extension frontend**, a **Groq-powered AI tab assistant** (LLaMA 3.3 70B), an **Express.js v5 REST API**, **Neon serverless PostgreSQL**, and **AWS Cognito/S3** for auth and storage.
-
-<!-- ![tab.flow Demo](docs/demo.gif) -->
 
 ---
 
 ## Why tab.flow?
 
-Power users juggle dozens of tabs across multiple windows. The native Chrome tab bar doesn't scale — tabs shrink to unreadable slivers, and Ctrl+Tab cycles linearly instead of by recency. tab.flow solves this with:
+Power users juggle dozens of tabs across multiple windows. Chrome's native tab bar doesn't scale — tabs shrink to unreadable slivers, and `Ctrl+Tab` cycles linearly instead of by recency.
+
+**tab.flow fixes this.** One shortcut opens a full-screen grid of every tab you have open — searchable, sortable, and controllable with your keyboard, your mouse, or just plain English.
 
 - **MRU-first navigation** — tabs sorted by last access, not position
-- **Full-screen grid overlay** — inspired by Windows Alt+Tab, with live thumbnails
-- **AI tab assistant** — natural-language control: "group my YouTube tabs", "close all Reddit"
-- **Fuzzy search with structured filters** — `is:pinned`, `domain:github.com`, and more
+- **Full-screen grid overlay** — inspired by Windows Alt+Tab, with live thumbnails and staggered animations
+- **AI tab assistant** — natural-language control: _"group my YouTube tabs"_, _"close all Reddit"_, _"save this session"_
+- **Fuzzy search with structured filters** — `is:pinned`, `domain:github.com`, `group:work`, and more
 - **Cloud-synced workspaces** — save and restore tab sets across devices
-- **Zero-config analytics** — passive browsing insights without any setup
+- **Zero-config analytics** — passive browsing insights with frecency scoring
 
 ---
 
-## Features
+<h2 id="demo">Demo</h2>
+
+> **Built for speed.** Every interaction — from opening the HUD to switching tabs — is designed to feel instant. Here's tab.flow in action:
+
+### Overview
+
+<!-- To embed: drag each .mp4 into a GitHub Issue comment, copy the generated URL, and replace the src below -->
+
+https://github.com/danielzhao07/TabFlowV1/raw/main/docs/demo-videos/Hero%20V4-1772607958625.mp4
+
+---
+
+### The Big Picture — All your tabs in one beautiful grid
+
+See every open tab at a glance. One shortcut opens a stunning full-screen view of your entire browser, beautifully laid out and ready to explore.
+
+https://github.com/danielzhao07/TabFlowV1/raw/main/docs/demo-videos/Video%201-1772606155839.mp4
+
+---
+
+### Instant Search — Find any tab in milliseconds
+
+Can't find the right tab? Just start typing. tab.flow's fuzzy search instantly finds what you need, even if you only remember part of the name. No more clicking through tabs one by one.
+
+https://github.com/danielzhao07/TabFlowV1/raw/main/docs/demo-videos/Video%202-1772609567161.mp4
+
+---
+
+### Meet flow — Your AI tab assistant
+
+Just tell **flow** what you need. Group your work tabs, close everything from yesterday, or save this session for later. **flow** handles the rest. Powered by Groq's LLaMA 3.3 70B with 21 action types.
+
+https://github.com/danielzhao07/TabFlowV1/raw/main/docs/demo-videos/Video%203%20V2-1772612398814.mp4
+
+---
+
+### Smart Groups — Smart grouping, zero effort
+
+tab.flow spots patterns in your browsing and suggests smart groups automatically. One click to organize, with brand-aware colors that make sense at a glance.
+
+https://github.com/danielzhao07/TabFlowV1/raw/main/docs/demo-videos/Video%204-1772644252508.mp4
+
+---
+
+### Workspaces — Save your tabs, switch instantly
+
+Juggling school, work, and weekend plans? Save your tabs as a workspace and switch between them instantly. Pick up right where you left off, every time.
+
+https://github.com/danielzhao07/TabFlowV1/raw/main/docs/demo-videos/Video%205%20V2-1772647407955.mp4
+
+---
+
+### Command Palette — Commands at your fingertips
+
+Type `>` to access powerful commands instantly. Close duplicates, sort tabs, pin groups, and more. Full keyboard navigation keeps you in the flow.
+
+https://github.com/danielzhao07/TabFlowV1/raw/main/docs/demo-videos/Video%206%20V2-1772672180157.mp4
+
+---
+
+<h2 id="features">Features</h2>
 
 ### Core Tab Management
 - Full-screen HUD overlay triggered by **Alt+Q** with backdrop blur and staggered card entry animations
@@ -68,56 +144,37 @@ Power users juggle dozens of tabs across multiple windows. The native Chrome tab
 - Never suspends pinned, active, or audible tabs
 - Runs via `chrome.alarms` every 5 minutes
 
-### Notes
-- Attach text notes to any URL — displayed as cyan italic text at the bottom of grid cards
-- Notes included in fuzzy search (weight 0.2)
-- Synced to cloud API when signed in
+### Notes & Bookmarks
+- Attach text notes to any URL — displayed as cyan italic text on grid cards
+- Notes included in fuzzy search (weight 0.2) and synced to cloud when signed in
+- Dual bookmark system: local tab.flow bookmarks + Chrome native bookmarks via `chrome.bookmarks` API
+- Star badge on bookmarked tabs, toggle via Ctrl+B or context menu with folder creation
 
-### Bookmarks
-- Dual system: local tab.flow bookmarks + Chrome native bookmarks via `chrome.bookmarks` API
-- Star (★) badge shown on bookmarked tabs in the grid
-- Toggle via Ctrl+B or context menu; supports folder creation
-- Synced to cloud when signed in
-
-### Analytics
+### Analytics & Frecency
 - Passive visit tracking: records URL, domain, title, and focus duration on every tab switch
 - Top 3 visited domains shown in the HUD's top bar (with brand-name mapping for 50+ sites)
-- Click a domain to jump to a matching tab, or open it
 - Frecency scoring (frequency × recency with 24-hour half-life) for sort mode and fallback analytics
-- Can be hidden via settings
+- Click a domain to jump to a matching tab, or open it
 
 ### Multi-Window Management
 - Window strip shows all open windows with active tab favicon, title, tab count, and current-window indicator
 - Click to focus/switch windows
 - Move tabs between windows, merge all windows, or split to new windows
 
-### Group Suggestions
-- Auto-detects ungrouped domains with 2+ tabs and suggests grouping them
-- Smart color picking: brand-color hints for 25+ domains (YouTube → red, GitHub → purple, Spotify → green)
-- Click existing group pills to filter the grid; X to dissolve a group
-- Bulk group/ungroup buttons appear when 2+ tabs are selected
-
-### Command Palette
-- Type **>** in the search bar to open
-- Commands: close duplicates, close selected, group/ungroup selected, reopen last closed, toggle window filter, sort by name (toggle MRU ↔ A–Z), select all
-
-### Context Menu
-- Right-click any tab card for: Pin/Unpin, Bookmark, Mute/Unmute, Duplicate, Move to new window, Reload, Group/Ungroup, Close
+### Context Menu & Commands
+- Right-click any tab card for: Pin, Bookmark, Mute, Duplicate, Move to new window, Reload, Group/Ungroup, Snooze, Close
 - Multi-select context menu: all above operations in bulk for N selected tabs
-- Auto-clamps to viewport boundaries with directional animation
+- Command palette (`>` prefix): close duplicates, close selected, group/ungroup, reopen last closed, sort by name, select all
 
 ### Popup
 - Compact 340px mini interface accessible from the toolbar icon
-- **Tabs view**: stats bar (total tabs, windows, pinned, suspended, estimated memory saved) + top 7 recent tabs
-- **Workspaces view**: save current window, list/restore/delete workspaces
+- Stats bar: total tabs, windows, pinned, suspended, estimated memory saved
+- Top 7 recent tabs + workspaces view with save/restore/delete
 - Footer hint: "Alt+Q for full switcher"
 
 ### Export / Import
 - Export all data (settings, workspaces, bookmarks, notes) as a versioned JSON file
 - Import from JSON with validation — available from the options page
-
-### Keyboard Cheat Sheet
-- Press **>** to access the command palette which lists all available commands and their shortcuts
 
 ---
 
@@ -164,14 +221,14 @@ Power users juggle dozens of tabs across multiple windows. The native Chrome tab
 
 | Shortcut | Action |
 |---|---|
-| `Ctrl+S` | Sort by name (toggle MRU ↔ A–Z) |
+| `Ctrl+S` | Sort by name (toggle MRU / A–Z) |
 | `Ctrl+F` | Toggle window filter (all / current) |
 | `>` | Open command palette |
 | `@` | Activate AI agent |
 
 ---
 
-## Tech Stack
+<h2 id="tech-stack">Tech Stack</h2>
 
 ### Extension (`apps/extension/`)
 
@@ -207,102 +264,29 @@ Power users juggle dozens of tabs across multiple windows. The native Chrome tab
 | **Groq** | LLaMA 3.3 70B inference for AI tab assistant |
 | **Google Gemini** | Embedding model for server-side semantic search |
 
----
+### Architecture
 
-## Database Schema
-
-| Table | Description |
-|---|---|
-| `users` | Cognito sub + email, created on first sign-in |
-| `workspaces` | Named tab sets (JSONB array of url/title/favicon) |
-| `bookmarks` | Cloud-synced bookmarks with URL, title, favicon |
-| `notes` | Per-URL text notes |
-| `tab_embeddings` | 768-dim Gemini vectors for semantic search |
-| `tab_analytics` | Per-URL visit count, total duration, domain, title |
-| `user_settings` | JSONB settings blob, upserted on change |
-
----
-
-## API Endpoints
-
-Authenticated endpoints require `Authorization: Bearer <cognito-token>` or `x-device-id` header.
-
-### Auth (public)
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/auth/token` | Exchange Cognito PKCE auth code for tokens |
-| `POST` | `/api/auth/login` | Email + password sign-in |
-| `POST` | `/api/auth/signup` | Create account |
-| `POST` | `/api/auth/confirm` | Verify email with confirmation code |
-| `POST` | `/api/auth/resend` | Resend verification code |
-
-### Sync
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/sync/workspaces` | List saved workspaces |
-| `POST` | `/api/sync/workspaces` | Create workspace |
-| `PATCH` | `/api/sync/workspaces/:id` | Update workspace |
-| `DELETE` | `/api/sync/workspaces/:id` | Delete workspace |
-| `GET` | `/api/sync/bookmarks` | List bookmarks |
-| `POST` | `/api/sync/bookmarks` | Create bookmark |
-| `DELETE` | `/api/sync/bookmarks/:id` | Delete bookmark |
-| `GET` | `/api/sync/notes` | List notes |
-| `POST` | `/api/sync/notes` | Create / update note |
-| `GET` | `/api/sync/settings` | Get user settings |
-| `PUT` | `/api/sync/settings` | Upsert settings |
-
-### AI
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/ai/embed` | Generate + store Gemini embedding for a tab |
-| `POST` | `/api/ai/search` | Semantic search over stored embeddings |
-| `GET` | `/api/ai/history` | Semantic search across all tab history |
-| `GET` | `/api/ai/health` | Check Gemini API availability |
-
-### Analytics
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/analytics/visit` | Record a tab visit (URL, domain, duration) |
-| `GET` | `/api/analytics/top-domains` | Top visited domains |
-| `GET` | `/api/analytics/summary` | Aggregate usage statistics |
-| `GET` | `/api/analytics/recent` | Recently visited tabs |
-
-### Thumbnails
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/thumbnails/upload` | Upload screenshot (base64, max 2 MB) |
-| `GET` | `/api/thumbnails/url` | Get presigned S3 download URL |
-| `DELETE` | `/api/thumbnails` | Delete a stored thumbnail |
-
-### Health
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/health` | Service status, version, auth mode |
+```
+TabFlow/
+├── apps/
+│   ├── extension/               # Chrome extension (WXT + React 19)
+│   │   ├── components/hud/      # HUD overlay — 12 components
+│   │   ├── entrypoints/         # background, content, popup, options, auth
+│   │   ├── lib/                 # Core logic — search, hooks, AI, storage
+│   │   └── assets/              # Global CSS + animations
+│   └── api/                     # Express.js v5 REST API
+│       └── src/
+│           ├── routes/          # auth, sync, ai, analytics, thumbnails
+│           ├── db/              # Drizzle ORM schema (7 tables)
+│           ├── middleware/      # Cognito JWT auth
+│           └── services/        # S3 client
+├── docs/                        # Website, privacy policy, terms
+└── package.json                 # pnpm monorepo scripts
+```
 
 ---
 
-## Settings
-
-| Setting | Type | Default | Description |
-|---|---|---|---|
-| `searchThreshold` | number | 0.4 | Fuzzy match sensitivity (0.1 = strict, 0.8 = loose) |
-| `maxResults` | number | 50 | Max tabs shown in HUD |
-| `showPinnedTabs` | boolean | true | Include pinned tabs in grid |
-| `showUrls` | boolean | true | Show domain below tab titles |
-| `autoSuspend` | boolean | false | Auto-discard inactive tabs |
-| `autoSuspendMinutes` | number | 30 | Inactivity threshold (5–120 min) |
-| `hideTodayTabs` | boolean | false | Hide analytics bar in HUD |
-| `groqApiKey` | string | — | Groq API key for AI agent (free at console.groq.com) |
-
----
-
-## Getting Started
+<h2 id="getting-started">Getting Started</h2>
 
 ### Prerequisites
 
@@ -311,17 +295,14 @@ Authenticated endpoints require `Authorization: Bearer <cognito-token>` or `x-de
 - Chrome or Chromium-based browser
 - (Optional) Neon PostgreSQL database for cloud sync
 - (Optional) AWS account for Cognito auth + S3 thumbnails
-- (Optional) Groq API key for AI tab assistant (free)
+- (Optional) Groq API key for AI tab assistant (free at [console.groq.com](https://console.groq.com))
 
 ### Installation
 
 ```bash
-# Clone and install
 git clone https://github.com/danielzhao07/TabFlowV1.git
 cd TabFlowV1
 pnpm install
-
-# Build the extension
 pnpm build
 ```
 
@@ -334,14 +315,10 @@ pnpm build
 ### API Setup (optional — for cloud sync)
 
 ```bash
-# Configure environment
 cp apps/api/.env.example apps/api/.env
 # Edit .env with your Neon DATABASE_URL, Cognito, S3, Gemini keys
 
-# Push database schema
 cd apps/api && npx drizzle-kit push && cd ../..
-
-# Start API
 pnpm dev:api
 ```
 
@@ -371,28 +348,10 @@ pnpm dev:all
 
 ---
 
-## Project Structure
-
-```
-TabFlow/
-├── apps/
-│   ├── extension/               # Chrome extension (WXT + React)
-│   │   ├── components/hud/      # HUD overlay components
-│   │   ├── entrypoints/         # background, content, popup, options, auth
-│   │   ├── lib/                 # Core logic (search, storage, AI, hooks)
-│   │   └── assets/              # Global CSS
-│   └── api/                     # Express.js REST API
-│       └── src/
-│           ├── routes/          # auth, sync, ai, analytics, thumbnails
-│           ├── db/              # Drizzle schema
-│           ├── middleware/      # JWT auth
-│           └── services/        # S3 client
-├── docs/                        # Privacy policy, terms, uninstall page
-└── package.json                 # Monorepo scripts
-```
-
----
-
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+Copyright (c) 2025-2026 Daniel Zhao. All rights reserved.
+
+This software and associated documentation files (the "Software") are proprietary and confidential. Unauthorized copying, modification, distribution, or use of this Software, via any medium, is strictly prohibited without express written permission from the copyright holder.
+
+See [LICENSE](LICENSE) for full terms.
