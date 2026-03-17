@@ -16,6 +16,10 @@ export default defineContentScript({
       else if (message.type === 'hide-hud') handleEarlyHide();
     });
 
+    // Signal to background that the content script's message listener is active.
+    // Background waits for this before sending toggle-hud on first injection.
+    chrome.runtime.sendMessage({ type: 'content-script-ready' }).catch(() => {});
+
     // Tell background to capture a thumbnail once the page is fully painted
     const notifyLoaded = () => {
       chrome.runtime.sendMessage({ type: 'page-loaded' }).catch(() => {});

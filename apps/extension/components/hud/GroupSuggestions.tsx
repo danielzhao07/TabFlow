@@ -115,8 +115,9 @@ export function GroupSuggestions({
               height: 26,
               background: isHovered || isActive ? g.color + '18' : g.color + '0c',
               border: `1px solid ${isActive ? g.color + '55' : isHovered ? g.color + '40' : g.color + '22'}`,
-              boxShadow: isHovered ? `0 0 10px ${g.color}35` : 'none',
-              transition: 'background 150ms, border-color 150ms, box-shadow 150ms',
+              boxShadow: isHovered ? `0 0 16px ${g.color}55, 0 0 32px ${g.color}22` : 'none',
+              transform: isHovered ? 'scale(1.06)' : undefined,
+              transition: 'background 200ms, border-color 200ms, box-shadow 200ms, transform 200ms',
             }}
             onMouseEnter={() => setHoveredId(g.groupId)}
             onMouseLeave={() => setHoveredId(null)}
@@ -186,8 +187,9 @@ export function GroupSuggestions({
               height: 26,
               border: `1px solid ${isHovered ? color + '40' : color + '22'}`,
               background: isHovered ? color + '18' : color + '0c',
-              boxShadow: isHovered ? `0 0 8px ${color}30` : 'none',
-              transition: 'background 150ms, border-color 150ms, box-shadow 150ms',
+              boxShadow: isHovered ? `0 0 16px ${color}55, 0 0 32px ${color}22` : 'none',
+              transform: isHovered ? 'scale(1.06)' : undefined,
+              transition: 'background 200ms, border-color 200ms, box-shadow 200ms, transform 200ms',
               outline: 'none',
               cursor: 'pointer',
             }}
@@ -275,8 +277,9 @@ export function GroupSuggestions({
             height: 26,
             border: '1px solid rgba(255,255,255,0.07)',
             background: hoveredId === sg.label ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)',
-            boxShadow: hoveredId === sg.label ? '0 0 8px rgba(255,255,255,0.06)' : 'none',
-            transition: 'background 150ms, box-shadow 150ms',
+            boxShadow: hoveredId === sg.label ? '0 0 16px rgba(255,255,255,0.12), 0 0 32px rgba(255,255,255,0.05)' : 'none',
+            transform: hoveredId === sg.label ? 'scale(1.06)' : undefined,
+            transition: 'background 200ms, box-shadow 200ms, transform 200ms',
             outline: 'none',
             cursor: 'pointer',
           }}

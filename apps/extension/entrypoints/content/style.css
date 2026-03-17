@@ -185,6 +185,26 @@ input[type='range'].slider-minimal::-moz-range-thumb {
   }
 }
 
+/* Dragging card — tilt + ghost */
+[data-dragging="true"] {
+  opacity: 0.5;
+  transform: rotate(2deg) scale(0.95) !important;
+  transition: opacity 150ms, transform 150ms !important;
+  pointer-events: none;
+}
+
+/* Drop target glow pulse while dragging over */
+@keyframes dropGlow {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.06);
+    filter: brightness(1.25);
+  }
+}
+
 /* Multi-select checkmark bounce */
 @keyframes checkPop {
   0%   { transform: scale(0); opacity: 0; }

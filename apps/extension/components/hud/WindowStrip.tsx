@@ -51,10 +51,10 @@ export function WindowStrip({ windows, currentWindowId, actions }: WindowStripPr
                 : 'bg-white/[0.04] border-white/[0.07] text-white/35 hover:bg-white/[0.08] hover:text-white/60 hover:border-white/[0.15]'
             }`}
             style={{
-              boxShadow: isDropTarget ? '0 0 12px rgba(120,217,236,0.5)' : undefined,
-              borderColor: isDropTarget
-                ? 'rgba(120,217,236,0.6)'
-                : undefined,
+              boxShadow: isDropTarget ? '0 0 16px rgba(120,217,236,0.6), 0 0 32px rgba(120,217,236,0.25)' : undefined,
+              borderColor: isDropTarget ? 'rgba(120,217,236,0.7)' : undefined,
+              transform: isDropTarget ? 'scale(1.08)' : undefined,
+              transition: 'box-shadow 200ms ease, border-color 200ms ease, transform 200ms ease, background 200ms ease',
             }}
           >
             {w.faviconUrl ? (

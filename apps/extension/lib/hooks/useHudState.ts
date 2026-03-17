@@ -171,41 +171,6 @@ export function useHudState(): HudState {
     chrome.storage.local.set({ tabflow_undo_stack: undoStack }).catch(() => {});
   }, [undoStack]);
 
-  // Compute local Fuse.js results for use in the fallback check below
-  const localResults = !query || isCommandMode
-    ? sortedTabs
-    : searchTabs(sortedTabs, query, settings?.searchThreshold, notesMap.size > 0 ? notesMap : undefined, duplicateUrls);
-
-  // AI semantic search: auto-triggers as fallback when local search returns < 3 results
-  // and the query is at least 3 characters. Debounced by 500ms to avoid spamming the API.
-  useEffect(() => {
-    const searchQuery = query.trim();
-    // Only trigger semantic fallback when local results are sparse
-    if (!searchQuery || searchQuery.length < 3 || isCommandMode || localResults.length >= 3) {
-      setAiSearchResults(null);
-      setAiSearchLoading(false);
-      return;
-    }
-    setAiSearchLoading(true);
-    const timer = setTimeout(() => {
-      semanticSearch(searchQuery)
-        .then((results) => {
-          // Match semantic results against currently open tabs by URL
-          const resultUrls = new Set(results.map((r) => r.url));
-          const matched = tabs.filter((t) => resultUrls.has(t.url));
-          // Sort matched tabs by the similarity order from the API
-          const urlOrder = new Map(results.map((r, i) => [r.url, i]));
-          matched.sort((a, b) => (urlOrder.get(a.url) ?? 999) - (urlOrder.get(b.url) ?? 999));
-          setAiSearchResults(matched.length > 0 ? matched : null);
-          setAiSearchLoading(false);
-        })
-        .catch(() => {
-          setAiSearchResults(null);
-          setAiSearchLoading(false);
-        });
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [query, tabs, localResults.length, isCommandMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hide = useCallback(() => {
     setAnimatingIn(false);
@@ -288,6 +253,42 @@ export function useHudState(): HudState {
 
   const isCommandMode = query.startsWith('>');
   const commandQuery = isCommandMode ? query.slice(1).trim() : '';
+
+  // Compute local Fuse.js results for use in the fallback check below
+  const localResults = !query || isCommandMode
+    ? sortedTabs
+    : searchTabs(sortedTabs, query, settings?.searchThreshold, notesMap.size > 0 ? notesMap : undefined, duplicateUrls);
+
+  // AI semantic search: auto-triggers as fallback when local search returns < 3 results
+  // and the query is at least 3 characters. Debounced by 500ms to avoid spamming the API.
+  useEffect(() => {
+    const searchQuery = query.trim();
+    // Only trigger semantic fallback when local results are sparse
+    if (!searchQuery || searchQuery.length < 3 || isCommandMode || localResults.length >= 3) {
+      setAiSearchResults(null);
+      setAiSearchLoading(false);
+      return;
+    }
+    setAiSearchLoading(true);
+    const timer = setTimeout(() => {
+      semanticSearch(searchQuery)
+        .then((results) => {
+          // Match semantic results against currently open tabs by URL
+          const resultUrls = new Set(results.map((r) => r.url));
+          const matched = tabs.filter((t) => resultUrls.has(t.url));
+          // Sort matched tabs by the similarity order from the API
+          const urlOrder = new Map(results.map((r, i) => [r.url, i]));
+          matched.sort((a, b) => (urlOrder.get(a.url) ?? 999) - (urlOrder.get(b.url) ?? 999));
+          setAiSearchResults(matched.length > 0 ? matched : null);
+          setAiSearchLoading(false);
+        })
+        .catch(() => {
+          setAiSearchResults(null);
+          setAiSearchLoading(false);
+        });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [query, tabs, localResults.length, isCommandMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Merge: show local results, and if semantic search found extras, append them
   const filteredTabs = (() => {

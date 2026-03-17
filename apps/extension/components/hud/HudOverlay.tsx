@@ -126,15 +126,13 @@ export function HudOverlay() {
       }
 
       if (message.type === 'toggle-hud') {
-        s.setVisible((prev) => {
-          if (!prev) {
-            openHud();
-            return true;
-          }
+        if (!s.visible) {
+          s.setVisible(true);
+          openHud();
+        } else {
           s.hide();
           setGroqUsage(null);
-          return prev;
-        });
+        }
       }
 
       if (message.type === 'tab-removed' && s.visible && message.tabId && !aiExecutingRef.current) {
@@ -464,6 +462,8 @@ export function HudOverlay() {
         backdropFilter: s.animatingIn ? 'blur(28px) saturate(180%)' : 'blur(0px)',
         transition: 'background-color 120ms ease-out, backdrop-filter 120ms ease-out',
       }}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+      onDrop={(e) => e.preventDefault()}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           setShowSettings(false);

@@ -87,6 +87,41 @@ function getDomainFromUrl(url: string): string {
   try { return new URL(url).hostname.replace('www.', ''); } catch { return ''; }
 }
 
+/**
+ * Inject the content script into a tab and wait for its 'content-script-ready' signal.
+ * Returns true if injection + ready succeeded, false otherwise.
+ */
+async function injectAndWaitForReady(tabId: number, timeoutMs = 3000): Promise<boolean> {
+  return new Promise<boolean>(async (resolve) => {
+    const timer = setTimeout(() => {
+      console.warn('[TabFlow] injectAndWaitForReady timed out for tab', tabId);
+      cleanup();
+      resolve(false);
+    }, timeoutMs);
+    const onMessage = (msg: any, sender: chrome.runtime.MessageSender) => {
+      if (msg?.type === 'content-script-ready' && sender.tab?.id === tabId) {
+        console.log('[TabFlow] content-script-ready received from tab', tabId);
+        cleanup();
+        resolve(true);
+      }
+    };
+    function cleanup() {
+      clearTimeout(timer);
+      chrome.runtime.onMessage.removeListener(onMessage);
+    }
+    chrome.runtime.onMessage.addListener(onMessage);
+    try {
+      await chrome.scripting.insertCSS({ target: { tabId }, files: ['content-scripts/content.css'] });
+      await chrome.scripting.executeScript({ target: { tabId }, files: ['content-scripts/content.js'] });
+      console.log('[TabFlow] content script injected into tab', tabId);
+    } catch (e) {
+      console.error('[TabFlow] injection failed for tab', tabId, e);
+      cleanup();
+      resolve(false);
+    }
+  });
+}
+
 /** Send tab visit analytics to the API (fire and forget) */
 async function reportVisit(url: string, domain: string, title: string, durationMs: number) {
   if (!url || !domain || durationMs < 1000) return; // ignore very short visits
@@ -193,29 +228,17 @@ export default defineBackground(() => {
       if (!existing) {
         openAuthWindow().catch(() => {}); // user may cancel — that's fine
       }
-      // Inject content script into all already-open tabs so users don't need to refresh
-      const tabs = await chrome.tabs.query({});
-      for (const tab of tabs) {
-        if (!tab.id || !tab.url) continue;
-        if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') ||
-            tab.url.startsWith('about:') || tab.url.startsWith('edge://') ||
-            tab.url.startsWith('devtools://')) continue;
-        // Check if already injected to avoid double-mounting
-        // tabflow-root is inside a shadow DOM, so check for the WXT host element instead
-        const [result] = await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          func: () => !!document.querySelector('tabflow-hud'),
-        }).catch(() => [{ result: true }]); // if it fails, assume already there
-        if (result?.result) continue;
-        chrome.scripting.insertCSS({
-          target: { tabId: tab.id },
-          files: ['content-scripts/content.css']
-        }).catch(() => {});
-        chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          files: ['content-scripts/content.js']
-        }).catch(() => {});
-      }
+    }
+
+    // Inject content script into all already-open tabs on install AND update/reload
+    // so users don't need to refresh existing tabs.
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+      if (!tab.id || !tab.url) continue;
+      if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') ||
+          tab.url.startsWith('about:') || tab.url.startsWith('edge://') ||
+          tab.url.startsWith('devtools://') || tab.url.startsWith('brave://')) continue;
+      injectAndWaitForReady(tab.id).catch(() => {});
     }
   });
 
@@ -467,6 +490,7 @@ export default defineBackground(() => {
 
   // Handle keyboard shortcut
   chrome.commands.onCommand.addListener(async (command) => {
+    console.log('[TabFlow] command received:', command);
     if (command === 'toggle-hud') {
       const now = Date.now();
       const isDoublePress = now - lastCommandTime < 400;
@@ -522,22 +546,14 @@ export default defineBackground(() => {
         hudTabId = realTab.tabId;
         // Send toggle IMMEDIATELY, inject on demand if content script not loaded
         chrome.tabs.sendMessage(realTab.tabId, { type: 'toggle-hud' }).catch(async () => {
-          try {
-            await chrome.scripting.insertCSS({
-              target: { tabId: realTab.tabId },
-              files: ['content-scripts/content.css'],
-            });
-            await chrome.scripting.executeScript({
-              target: { tabId: realTab.tabId },
-              files: ['content-scripts/content.js'],
-            });
-            await new Promise((r) => setTimeout(r, 80));
+          const ready = await injectAndWaitForReady(realTab.tabId);
+          if (ready) {
             chrome.tabs.sendMessage(realTab.tabId, { type: 'toggle-hud' }).catch(() => {
               hudVisible = false;
               hudTabId = undefined;
               hudHideTime = Date.now();
             });
-          } catch {
+          } else {
             hudVisible = false;
             hudTabId = undefined;
             hudHideTime = Date.now();
@@ -555,6 +571,7 @@ export default defineBackground(() => {
         return;
       }
 
+      console.log('[TabFlow] toggle-hud on tab', activeTab?.id, 'url:', activeTab?.url, 'hudVisible:', hudVisible);
       if (activeTab?.id) {
         const wasVisible = hudVisible;
         hudVisible = !hudVisible;
@@ -562,24 +579,23 @@ export default defineBackground(() => {
         if (wasVisible) hudHideTime = Date.now(); // stamp hide time for grace period
         // Send toggle IMMEDIATELY so the HUD opens without delay.
         // If the content script isn't loaded yet, inject it on demand and retry.
-        chrome.tabs.sendMessage(activeTab.id, { type: 'toggle-hud' }).catch(async () => {
-          try {
-            await chrome.scripting.insertCSS({
-              target: { tabId: activeTab.id! },
-              files: ['content-scripts/content.css'],
-            });
-            await chrome.scripting.executeScript({
-              target: { tabId: activeTab.id! },
-              files: ['content-scripts/content.js'],
-            });
-            // Brief pause for React to mount, then retry toggle
-            await new Promise((r) => setTimeout(r, 80));
-            chrome.tabs.sendMessage(activeTab.id!, { type: 'toggle-hud' }).catch(() => {
+        chrome.tabs.sendMessage(activeTab.id, { type: 'toggle-hud' }).then(() => {
+          console.log('[TabFlow] toggle-hud delivered to tab', activeTab.id);
+        }).catch(async (err) => {
+          console.warn('[TabFlow] toggle-hud failed, injecting content script...', err?.message);
+          const ready = await injectAndWaitForReady(activeTab.id!);
+          console.log('[TabFlow] injection result:', ready);
+          if (ready) {
+            chrome.tabs.sendMessage(activeTab.id!, { type: 'toggle-hud' }).then(() => {
+              console.log('[TabFlow] toggle-hud delivered after injection');
+            }).catch((e) => {
+              console.error('[TabFlow] toggle-hud failed even after injection', e?.message);
               hudVisible = false;
               hudTabId = undefined;
               hudHideTime = Date.now();
             });
-          } catch {
+          } else {
+            console.error('[TabFlow] injection failed, giving up');
             hudVisible = false;
             hudTabId = undefined;
             hudHideTime = Date.now();
@@ -1029,8 +1045,6 @@ export default defineBackground(() => {
             await chrome.windows.create({ tabId });
           } else {
             await chrome.tabs.move(tabId, { windowId, index: -1 });
-            await chrome.tabs.update(tabId, { active: true });
-            await chrome.windows.update(windowId, { focused: true });
           }
           broadcastUpdate();
           sendResponse({ success: true });

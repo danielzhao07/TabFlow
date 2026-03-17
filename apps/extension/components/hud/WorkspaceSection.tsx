@@ -117,10 +117,11 @@ export function WorkspaceSection({ tabs, onRestore, authUser, onRequestSignIn, a
             className="flex items-stretch shrink-0 rounded-md overflow-hidden"
             style={{
               height: 26,
-              background: isDragOver ? 'rgba(147,210,255,0.12)' : isHovered ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)',
-              border: `1px solid ${isDragOver ? 'rgba(147,210,255,0.4)' : isHovered ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.08)'}`,
-              boxShadow: isDragOver ? '0 0 10px rgba(147,210,255,0.3)' : undefined,
-              transition: 'background 150ms, border-color 150ms, box-shadow 150ms',
+              background: isDragOver ? 'rgba(147,210,255,0.15)' : isHovered ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)',
+              border: `1px solid ${isDragOver ? 'rgba(147,210,255,0.5)' : isHovered ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.08)'}`,
+              boxShadow: isDragOver ? '0 0 16px rgba(147,210,255,0.45), 0 0 32px rgba(147,210,255,0.2)' : undefined,
+              transform: isDragOver ? 'scale(1.06)' : undefined,
+              transition: 'background 200ms, border-color 200ms, box-shadow 200ms, transform 200ms',
             }}
             onMouseEnter={() => setHoveredId(ws.id)}
             onMouseLeave={() => setHoveredId(null)}

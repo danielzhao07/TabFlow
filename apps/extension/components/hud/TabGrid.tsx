@@ -241,16 +241,25 @@ export function TabGrid({
 
     const dragHandlers = isClosing ? {} : {
       draggable: true as const,
-      onDragStart: () => {
+      onDragStart: (e: React.DragEvent) => {
         dragFromRef.current = fi;
+        // Set drag data to prevent browser from opening images in a new tab
+        e.dataTransfer.setData('text/plain', '');
+        e.dataTransfer.effectAllowed = 'move';
+        // Mark the element as being dragged for CSS styling
+        (e.currentTarget as HTMLElement).setAttribute('data-dragging', 'true');
         // Populate drag context for cross-component drop targets
         const allSelected = selectedTabs.has(tab.tabId)
           ? tabs.filter((t) => selectedTabs.has(t.tabId)).map((t) => t.tabId)
           : [];
         drag.startDrag(tab.tabId, allSelected);
       },
-      onDragEnd: () => { dragFromRef.current = null; drag.endDrag(); },
-      onDragOver: (e: React.DragEvent) => e.preventDefault(),
+      onDragEnd: (e: React.DragEvent) => {
+        (e.currentTarget as HTMLElement).removeAttribute('data-dragging');
+        dragFromRef.current = null;
+        drag.endDrag();
+      },
+      onDragOver: (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; },
       onDrop: (e: React.DragEvent) => {
         e.preventDefault();
         if (dragFromRef.current !== null && dragFromRef.current !== fi) {
@@ -367,6 +376,8 @@ export function TabGrid({
       role="listbox"
       aria-label="Tab list"
       className="w-full h-full flex justify-center"
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+      onDrop={(e) => e.preventDefault()}
       style={{ padding: pad, overflow: 'visible', alignItems }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap, alignItems: 'center' }}>
@@ -430,9 +441,10 @@ export function TabGrid({
                         whiteSpace: 'nowrap',
                         paddingLeft: 12,
                         paddingRight: 12,
-                        transition: 'box-shadow 150ms ease, filter 150ms ease',
-                        boxShadow: dropGroupId === seg.groupId ? `0 0 16px ${color}80` : 'none',
-                        filter: dropGroupId === seg.groupId ? 'brightness(1.3)' : 'none',
+                        transition: 'box-shadow 200ms ease, filter 200ms ease, transform 200ms ease',
+                        boxShadow: dropGroupId === seg.groupId ? `0 0 20px ${color}99, 0 0 40px ${color}44` : 'none',
+                        filter: dropGroupId === seg.groupId ? 'brightness(1.4)' : 'none',
+                        transform: dropGroupId === seg.groupId ? 'scaleY(1.15)' : 'none',
                         cursor: 'default',
                       }}
                     >
