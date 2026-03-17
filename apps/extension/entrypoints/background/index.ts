@@ -80,6 +80,9 @@ let pendingToggleId = 0;
 let activeTabFocusStart = Date.now();
 let activeTabMeta: { tabId: number; url: string; domain: string; title: string } | null = null;
 
+// Groq token usage accumulated across the session
+let groqSessionTokens = { prompt: 0, completion: 0, total: 0 };
+
 function getDomainFromUrl(url: string): string {
   try { return new URL(url).hostname.replace('www.', ''); } catch { return ''; }
 }
@@ -152,6 +155,11 @@ async function tryAIGroupName(tabs: Array<{ title: string; url: string }>): Prom
 
     if (!res.ok) return null;
     const data = await res.json();
+    if (data.usage) {
+      groqSessionTokens.prompt += data.usage.prompt_tokens ?? 0;
+      groqSessionTokens.completion += data.usage.completion_tokens ?? 0;
+      groqSessionTokens.total += data.usage.total_tokens ?? 0;
+    }
     const text = data?.choices?.[0]?.message?.content;
     if (!text) return null;
     const parsed = JSON.parse(text);
@@ -654,7 +662,10 @@ export default defineBackground(() => {
       // which broadcasts tabs-updated and causes fetchTabs to run. Without this, a
       // race condition means the closed tab reappears in the HUD after the refetch.
       removeTab(tabId).catch(() => {});
-      chrome.tabs.remove(tabId).catch(() => {});
+      chrome.tabs.remove(tabId)
+        .then(() => sendResponse({ success: true }))
+        .catch((err) => sendResponse({ error: err?.message || 'Unknown error' }));
+      return true;
     }
 
     if (message.type === 'duplicate-tab') {
@@ -669,8 +680,11 @@ export default defineBackground(() => {
 
     if (message.type === 'pin-tab') {
       const { tabId, pinned } = message.payload;
-      chrome.tabs.update(tabId, { pinned });
+      chrome.tabs.update(tabId, { pinned })
+        .then(() => sendResponse({ success: true }))
+        .catch((err) => sendResponse({ error: err?.message || 'Unknown error' }));
       // onUpdated listener handles MRU update and broadcast
+      return true;
     }
 
     if (message.type === 'group-tabs') {
@@ -734,8 +748,8 @@ export default defineBackground(() => {
               });
             }
           }
-        } catch {
-          sendResponse({ success: false });
+        } catch (err) {
+          sendResponse({ error: (err as Error)?.message || 'Unknown error' });
         }
       })();
       return true;
@@ -772,8 +786,8 @@ export default defineBackground(() => {
           }
           broadcastUpdate();
           sendResponse({ success: true });
-        } catch {
-          sendResponse({ success: false });
+        } catch (err) {
+          sendResponse({ error: (err as Error)?.message || 'Unknown error' });
         }
       })();
       return true;
@@ -914,8 +928,8 @@ export default defineBackground(() => {
       const { sessionId } = message.payload;
       chrome.sessions.restore(sessionId).then(() => {
         sendResponse({ success: true });
-      }).catch(() => {
-        sendResponse({ success: false });
+      }).catch((err) => {
+        sendResponse({ error: err?.message || 'Unknown error' });
       });
       return true; // async response
     }
@@ -985,8 +999,8 @@ export default defineBackground(() => {
           }
           broadcastUpdate();
           sendResponse({ success: true });
-        } catch {
-          sendResponse({ success: false });
+        } catch (err) {
+          sendResponse({ error: (err as Error)?.message || 'Unknown error' });
         }
       })();
       return true;
@@ -1162,7 +1176,7 @@ export default defineBackground(() => {
       chrome.tabs.update(tabId, { muted }).then(() => {
         broadcastUpdate();
         sendResponse({ success: true });
-      }).catch(() => sendResponse({ success: false }));
+      }).catch((err) => sendResponse({ error: err?.message || 'Unknown error' }));
       return true;
     }
 
@@ -1396,6 +1410,11 @@ export default defineBackground(() => {
           }
 
           const data = await res.json();
+          if (data.usage) {
+            groqSessionTokens.prompt += data.usage.prompt_tokens ?? 0;
+            groqSessionTokens.completion += data.usage.completion_tokens ?? 0;
+            groqSessionTokens.total += data.usage.total_tokens ?? 0;
+          }
           const text = data?.choices?.[0]?.message?.content;
           if (!text) {
             sendResponse({ error: 'empty-response' });
@@ -1403,12 +1422,17 @@ export default defineBackground(() => {
           }
 
           const parsed = JSON.parse(text);
-          sendResponse({ success: true, message: parsed.message, actions: parsed.actions ?? [] });
+          sendResponse({ success: true, message: parsed.message, actions: parsed.actions ?? [], usage: { ...groqSessionTokens } });
         } catch (err) {
           sendResponse({ error: String(err) });
         }
       })();
       return true;
+    }
+
+    if (message.type === 'get-groq-usage') {
+      sendResponse({ usage: { ...groqSessionTokens } });
+      return;
     }
   });
 

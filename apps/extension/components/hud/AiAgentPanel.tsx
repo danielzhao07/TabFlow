@@ -7,6 +7,7 @@ interface AiAgentPanelProps {
   actions: AgentAction[];
   completedCount: number;
   onDismiss: () => void;
+  usage?: { prompt: number; completion: number; total: number };
 }
 
 /** Collapse actions of the same type into a single summary line. */
@@ -33,7 +34,7 @@ function summariseActions(actions: AgentAction[]): string[] {
   return lines;
 }
 
-export function AiAgentPanel({ message, actions, completedCount, onDismiss }: AiAgentPanelProps) {
+export function AiAgentPanel({ message, actions, completedCount, onDismiss, usage }: AiAgentPanelProps) {
   const allDone = completedCount >= actions.length;
   const progress = actions.length > 0 ? Math.round((completedCount / actions.length) * 100) : 100;
   const summaryLines = useMemo(() => summariseActions(actions), [actions]);
@@ -60,6 +61,23 @@ export function AiAgentPanel({ message, actions, completedCount, onDismiss }: Ai
               transition: 'width 300ms ease',
             }}
           />
+        </div>
+      )}
+
+      {usage && usage.total > 0 && (
+        <div className="flex items-center gap-1 mb-1">
+          <span
+            className="text-[10px] leading-none"
+            style={{
+              padding: '2px 6px',
+              borderRadius: 4,
+              background: 'rgba(160,140,255,0.08)',
+              color: 'rgba(180,165,255,0.5)',
+              border: '1px solid rgba(160,140,255,0.1)',
+            }}
+          >
+            {'\u26A1'} {usage.total.toLocaleString()} tokens
+          </span>
         </div>
       )}
 

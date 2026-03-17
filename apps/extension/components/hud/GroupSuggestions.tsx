@@ -3,12 +3,20 @@ import type { TabInfo } from '@/lib/types';
 import type { TabActions } from '@/lib/hooks/useTabActions';
 import type { SmartSuggestion, GroupAddSuggestion } from '@/lib/group-utils';
 import { getDomain, getGroupTitle, getSmartSuggestions, getGroupAddSuggestions } from '@/lib/group-utils';
+import { useDragContext } from '@/lib/hooks/useDragContext';
 
 const GROUP_COLORS: Record<string, string> = {
   blue: '#8ab4f8', cyan: '#78d9ec', green: '#81c995', yellow: '#fdd663',
   orange: '#fcad70', red: '#f28b82', pink: '#ff8bcb', purple: '#c58af9',
   grey: '#9aa0a6',
 };
+
+function colorNameFromHex(hex: string): string {
+  for (const [name, value] of Object.entries(GROUP_COLORS)) {
+    if (value === hex) return name;
+  }
+  return 'grey';
+}
 
 interface GroupSuggestionsProps {
   tabs: TabInfo[];
@@ -21,6 +29,7 @@ interface GroupSuggestionsProps {
 export function GroupSuggestions({
   tabs, actions, selectedTabs, groupFilter, onGroupFilterToggle,
 }: GroupSuggestionsProps) {
+  const drag = useDragContext();
   const [hoveredId, setHoveredId] = useState<number | string | null>(null);
   const [suggestions, setSuggestions] = useState<SmartSuggestion[]>([]);
   const [addSuggestions, setAddSuggestions] = useState<GroupAddSuggestion[]>([]);
@@ -111,6 +120,16 @@ export function GroupSuggestions({
             }}
             onMouseEnter={() => setHoveredId(g.groupId)}
             onMouseLeave={() => setHoveredId(null)}
+            onDragOver={(e) => { e.preventDefault(); setHoveredId(g.groupId); }}
+            onDragLeave={() => setHoveredId(null)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setHoveredId(null);
+              if (drag.dragTabId != null) {
+                const ids = drag.dragTabIds.length > 0 ? drag.dragTabIds : [drag.dragTabId];
+                actions.addToGroup(ids, g.groupId, g.title, colorNameFromHex(g.color));
+              }
+            }}
           >
             {/* Colored left bar */}
             <div style={{ width: 3, background: g.color, opacity: isActive ? 1 : 0.7, flexShrink: 0 }} />
@@ -174,6 +193,16 @@ export function GroupSuggestions({
             }}
             onMouseEnter={() => setHoveredId(`add-${sg.groupId}`)}
             onMouseLeave={() => setHoveredId(null)}
+            onDragOver={(e) => { e.preventDefault(); setHoveredId(`add-${sg.groupId}`); }}
+            onDragLeave={() => setHoveredId(null)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setHoveredId(null);
+              if (drag.dragTabId != null) {
+                const ids = drag.dragTabIds.length > 0 ? drag.dragTabIds : [drag.dragTabId];
+                actions.addToGroup(ids, sg.groupId, sg.groupTitle, sg.groupColor);
+              }
+            }}
             onClick={() => actions.addToGroup(sg.tabIds, sg.groupId, sg.groupTitle, sg.groupColor)}
             title={`Add ${sg.tabIds.length} tab${sg.tabIds.length > 1 ? 's' : ''} to "${sg.groupTitle}"`}
           >
@@ -253,6 +282,17 @@ export function GroupSuggestions({
           }}
           onMouseEnter={() => setHoveredId(sg.label)}
           onMouseLeave={() => setHoveredId(null)}
+          onDragOver={(e) => { e.preventDefault(); setHoveredId(sg.label); }}
+          onDragLeave={() => setHoveredId(null)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setHoveredId(null);
+            if (drag.dragTabId != null) {
+              const ids = drag.dragTabIds.length > 0 ? drag.dragTabIds : [drag.dragTabId];
+              const allIds = [...new Set([...sg.tabIds, ...ids])];
+              actions.groupSuggestionTabs(allIds, sg.label);
+            }
+          }}
           onClick={() => actions.groupSuggestionTabs(sg.tabIds, sg.label)}
           title={`Group ${sg.tabIds.length} tabs → "${sg.label}"`}
         >

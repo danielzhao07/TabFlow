@@ -1,11 +1,12 @@
 import { useState, useCallback, useMemo, useRef, useEffect, type Dispatch, type SetStateAction } from 'react';
+import type { ToastData } from '@/components/hud/Toast';
 import type { TabInfo, RecentTab, UndoRecord } from '@/lib/types';
 import type { TabFlowSettings } from '@/lib/settings';
 import { searchTabs } from '@/lib/fuse-search';
 import { getSettings } from '@/lib/settings';
 import { getFrecencyMap, computeScore } from '@/lib/frecency';
 import type { TabBookmark } from '@/lib/bookmarks';
-// api-client imported in HudOverlay for AI history search
+import { semanticSearch } from '@/lib/api-client';
 
 export interface OtherWindow {
   windowId: number;
@@ -82,6 +83,13 @@ export interface HudState {
   isCommandMode: boolean;
   commandQuery: string;
 
+  // Loading
+  loading: boolean;
+  setLoading: Dispatch<SetStateAction<boolean>>;
+
+  // AI semantic search
+  aiSearchLoading: boolean;
+
   // Thumbnails
   thumbnails: Map<number, string>;
   setThumbnails: Dispatch<SetStateAction<Map<number, string>>>;
@@ -100,6 +108,11 @@ export interface HudState {
   loadUndoStack: () => void;
   // Deduplication ref: tracks tab IDs closed by the extension (so 'tab-removed' handler skips them)
   pendingExtensionCloseIdsRef: React.MutableRefObject<Set<number>>;
+
+  // Generic toasts
+  toasts: ToastData[];
+  setToasts: Dispatch<SetStateAction<ToastData[]>>;
+  addToast: (message: string, type?: 'error' | 'success' | 'info') => void;
 }
 
 export function useHudState(): HudState {
@@ -124,7 +137,16 @@ export function useHudState(): HudState {
   const [groupFilter, setGroupFilter] = useState<Set<number>>(new Set());
   const [closingTabIds, setClosingTabIds] = useState<Set<number>>(new Set());
   const [undoStack, setUndoStack] = useState<UndoRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const pendingExtensionCloseIdsRef = useRef<Set<number>>(new Set());
+  const [toasts, setToasts] = useState<ToastData[]>([]);
+  const [aiSearchResults, setAiSearchResults] = useState<TabInfo[] | null>(null);
+  const [aiSearchLoading, setAiSearchLoading] = useState(false);
+
+  const addToast = useCallback((message: string, type: 'error' | 'success' | 'info' = 'info') => {
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    setToasts((prev) => [...prev.slice(-2), { id, type, message }]);
+  }, []);
 
   // Track whether the initial storage load has completed so we don't overwrite
   // stored records with the empty initial state.
@@ -148,6 +170,39 @@ export function useHudState(): HudState {
     if (!undoStackReady.current) return;
     chrome.storage.local.set({ tabflow_undo_stack: undoStack }).catch(() => {});
   }, [undoStack]);
+
+  // AI semantic search: detect `ai:` prefix and call backend with debounce
+  useEffect(() => {
+    if (!query.startsWith('ai:')) {
+      setAiSearchResults(null);
+      return;
+    }
+    const searchQuery = query.slice(3).trim();
+    if (!searchQuery) {
+      setAiSearchResults(null);
+      return;
+    }
+    setAiSearchLoading(true);
+    const timer = setTimeout(() => {
+      semanticSearch(searchQuery)
+        .then((results) => {
+          // Match semantic results against currently open tabs by URL
+          const resultUrls = new Set(results.map((r) => r.url));
+          const matched = tabs.filter((t) => resultUrls.has(t.url));
+          // Sort matched tabs by the similarity order from the API
+          const urlOrder = new Map(results.map((r, i) => [r.url, i]));
+          matched.sort((a, b) => (urlOrder.get(a.url) ?? 999) - (urlOrder.get(b.url) ?? 999));
+          setAiSearchResults(matched.length > 0 ? matched : null);
+          setAiSearchLoading(false);
+        })
+        .catch(() => {
+          setAiSearchResults(null);
+          setAiSearchLoading(false);
+          addToast('AI search failed, using local search', 'error');
+        });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query, tabs, addToast]);
 
   const hide = useCallback(() => {
     setAnimatingIn(false);
@@ -231,9 +286,11 @@ export function useHudState(): HudState {
   const isCommandMode = query.startsWith('>');
   const commandQuery = isCommandMode ? query.slice(1).trim() : '';
 
-  const filteredTabs = !query || isCommandMode
-    ? sortedTabs
-    : searchTabs(sortedTabs, query, settings?.searchThreshold, notesMap.size > 0 ? notesMap : undefined, duplicateUrls);
+  const filteredTabs = aiSearchResults
+    ? aiSearchResults
+    : (!query || isCommandMode
+      ? sortedTabs
+      : searchTabs(sortedTabs, query, settings?.searchThreshold, notesMap.size > 0 ? notesMap : undefined, duplicateUrls));
 
   const groupFilteredTabs = groupFilter.size > 0
     ? filteredTabs.filter((t) => t.groupId != null && groupFilter.has(t.groupId))
@@ -264,7 +321,10 @@ export function useHudState(): HudState {
     displayTabs, duplicateMap, duplicateUrls, duplicateCount,
     isCommandMode, commandQuery,
     fetchTabs, fetchRecentTabs, loadUndoStack,
+    loading, setLoading,
+    aiSearchLoading,
     pendingExtensionCloseIdsRef,
+    toasts, setToasts, addToast,
   };
 }
 
@@ -297,4 +357,5 @@ export async function loadHudData(state: HudState) {
   if (windowsRes?.windows) {
     state.setOtherWindows(windowsRes.windows);
   }
+  state.setLoading(false);
 }

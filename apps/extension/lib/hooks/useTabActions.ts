@@ -4,6 +4,13 @@ import type { UndoRecord, TabInfo } from '@/lib/types';
 import type { HudState } from './useHudState';
 import { getDomain, getGroupTitle, getSmartGroupName, findRelatedTabs } from '@/lib/group-utils';
 
+/** Wrapper that sends a message to the background and throws on error responses. */
+async function sendMsg<T = any>(type: string, payload?: any): Promise<T> {
+  const response = await chrome.runtime.sendMessage({ type, payload });
+  if (response?.error) throw new Error(response.error);
+  return response as T;
+}
+
 export interface TabActions {
   switchToTab: (tabId: number) => void;
   closeTab: (tabId: number) => void;
@@ -59,10 +66,11 @@ export function useTabActions(s: HudState): TabActions {
   }, [s]);
 
   const closeTab = useCallback((tabId: number) => {
+    const toast = (msg: string) => (s as any).addToast?.(msg, 'error');
     const closedTab = s.tabs.find((t) => t.tabId === tabId);
     // Mark as extension-initiated so the 'tab-removed' broadcast handler skips the toast
     s.pendingExtensionCloseIdsRef.current.add(tabId);
-    chrome.runtime.sendMessage({ type: 'close-tab', payload: { tabId } });
+    sendMsg('close-tab', { tabId }).catch(() => toast('Failed to close tab'));
     // Start exit animation — tab stays in list but renders as closing
     s.setClosingTabIds((prev) => new Set([...prev, tabId]));
     // After animation completes, actually remove from state
@@ -92,8 +100,9 @@ export function useTabActions(s: HudState): TabActions {
   }, [s, pushUndo]);
 
   const togglePin = useCallback((tabId: number, pinned: boolean) => {
+    const toast = (msg: string) => (s as any).addToast?.(msg, 'error');
     pushUndo({ type: 'pin', label: pinned ? 'Pinned tab' : 'Unpinned tab', timestamp: Date.now(), tabIds: [tabId], wasPinned: !pinned });
-    chrome.runtime.sendMessage({ type: 'pin-tab', payload: { tabId, pinned } });
+    sendMsg('pin-tab', { tabId, pinned }).catch(() => toast('Failed to toggle pin'));
     s.setTabs((prev) => prev.map((t) => t.tabId === tabId ? { ...t, isPinned: pinned } : t));
   }, [s, pushUndo]);
 
@@ -172,6 +181,7 @@ export function useTabActions(s: HudState): TabActions {
   }, [s, pushUndo]);
 
   const groupSelectedTabs = useCallback(async () => {
+    const toast = (msg: string) => (s as any).addToast?.(msg, 'error');
     if (s.selectedTabs.size === 0) return;
     const tabIds = [...s.selectedTabs];
     const selectedTabInfos = tabIds.map((id) => s.tabs.find((t) => t.tabId === id)).filter(Boolean) as TabInfo[];
@@ -181,12 +191,17 @@ export function useTabActions(s: HudState): TabActions {
     const usedColors = new Set(s.tabs.filter((t) => t.groupColor).map((t) => t.groupColor!));
     const color = pickGroupColor(topDomain, usedColors);
     pushUndo({ type: 'group', label: `Grouped ${tabIds.length} tabs`, timestamp: Date.now(), tabIds });
-    await chrome.runtime.sendMessage({ type: 'group-tabs', payload: { tabIds, title, color } });
-    s.setSelectedTabs(new Set());
-    s.fetchTabs();
+    try {
+      await sendMsg('group-tabs', { tabIds, title, color });
+      s.setSelectedTabs(new Set());
+      s.fetchTabs();
+    } catch {
+      toast('Failed to group tabs');
+    }
   }, [s, pushUndo]);
 
   const ungroupSelectedTabs = useCallback(async () => {
+    const toast = (msg: string) => (s as any).addToast?.(msg, 'error');
     const tabIds = s.selectedTabs.size > 0
       ? [...s.selectedTabs]
       : s.displayTabs[s.selectedIndex] ? [s.displayTabs[s.selectedIndex].tabId] : [];
@@ -207,33 +222,47 @@ export function useTabActions(s: HudState): TabActions {
     pushUndo({ type: 'ungroup', label: `Ungrouped ${tabIds.length} tabs`, timestamp: Date.now(), groups });
     // Only send tabs that are actually in a group — chrome.tabs.ungroup throws for ungrouped tabs
     const groupedTabIds = groups.flatMap((g) => g.tabIds);
-    await chrome.runtime.sendMessage({ type: 'ungroup-tabs', payload: { tabIds: groupedTabIds } });
-    s.setSelectedTabs(new Set());
-    s.fetchTabs();
+    try {
+      await sendMsg('ungroup-tabs', { tabIds: groupedTabIds });
+      s.setSelectedTabs(new Set());
+      s.fetchTabs();
+    } catch {
+      toast('Failed to ungroup tabs');
+    }
   }, [s, pushUndo]);
 
   const dissolveGroup = useCallback(async (groupId: number) => {
+    const toast = (msg: string) => (s as any).addToast?.(msg, 'error');
     const groupTabs = s.tabs.filter((t) => t.groupId === groupId);
     const tabIds = groupTabs.map((t) => t.tabId);
     if (tabIds.length === 0) return;
     const firstTab = groupTabs[0];
     pushUndo({ type: 'ungroup', label: `Dissolved group`, timestamp: Date.now(), groups: [{ groupId, tabIds, groupTitle: firstTab?.groupTitle || '', groupColor: firstTab?.groupColor || 'blue' }] });
-    await chrome.runtime.sendMessage({ type: 'ungroup-tabs', payload: { tabIds } });
-    s.setGroupFilter((prev) => { const next = new Set(prev); next.delete(groupId); return next; });
-    s.fetchTabs();
+    try {
+      await sendMsg('ungroup-tabs', { tabIds });
+      s.setGroupFilter((prev) => { const next = new Set(prev); next.delete(groupId); return next; });
+      s.fetchTabs();
+    } catch {
+      toast('Failed to dissolve group');
+    }
   }, [s, pushUndo]);
 
   const toggleBookmark = useCallback(async (tabId: number) => {
+    const toast = (msg: string) => (s as any).addToast?.(msg, 'error');
     const tab = s.tabs.find((t) => t.tabId === tabId);
     if (!tab) return;
     const wasBookmarked = s.bookmarkedUrls.has(tab.url);
     pushUndo({ type: 'bookmark', label: wasBookmarked ? 'Removed bookmark' : 'Bookmarked tab', timestamp: Date.now(), url: tab.url, title: tab.title, faviconUrl: tab.faviconUrl, wasBookmarked });
-    if (wasBookmarked) {
-      const res = await chrome.runtime.sendMessage({ type: 'remove-bookmark', payload: { url: tab.url } });
-      if (res?.bookmarks) s.setBookmarkedUrls(new Set(res.bookmarks.map((b: TabBookmark) => b.url)));
-    } else {
-      const res = await chrome.runtime.sendMessage({ type: 'add-bookmark', payload: { url: tab.url, title: tab.title, faviconUrl: tab.faviconUrl } });
-      if (res?.bookmarks) s.setBookmarkedUrls(new Set(res.bookmarks.map((b: TabBookmark) => b.url)));
+    try {
+      if (wasBookmarked) {
+        const res = await sendMsg('remove-bookmark', { url: tab.url });
+        if (res?.bookmarks) s.setBookmarkedUrls(new Set(res.bookmarks.map((b: TabBookmark) => b.url)));
+      } else {
+        const res = await sendMsg('add-bookmark', { url: tab.url, title: tab.title, faviconUrl: tab.faviconUrl });
+        if (res?.bookmarks) s.setBookmarkedUrls(new Set(res.bookmarks.map((b: TabBookmark) => b.url)));
+      }
+    } catch {
+      toast('Failed to toggle bookmark');
     }
   }, [s, pushUndo]);
 
@@ -248,22 +277,31 @@ export function useTabActions(s: HudState): TabActions {
   }, [s]);
 
   const moveToWindow = useCallback(async (tabId: number, windowId: number) => {
-    await chrome.runtime.sendMessage({ type: 'move-to-window', payload: { tabId, windowId } });
-    s.fetchTabs();
-    const res = await chrome.runtime.sendMessage({ type: 'get-windows' });
-    if (res?.windows) s.setOtherWindows(res.windows);
+    const toast = (msg: string) => (s as any).addToast?.(msg, 'error');
+    try {
+      await sendMsg('move-to-window', { tabId, windowId });
+      s.fetchTabs();
+      const res = await sendMsg('get-windows');
+      if (res?.windows) s.setOtherWindows(res.windows);
+    } catch {
+      toast('Failed to move tab');
+    }
   }, [s]);
 
   const reorderTabs = useCallback(async (fromIndex: number, toIndex: number) => {
+    const toast = (msg: string) => (s as any).addToast?.(msg, 'error');
     const tab = s.displayTabs[fromIndex];
     if (!tab || !s.displayTabs[toIndex]) return;
     try {
       await chrome.tabs.move(tab.tabId, { index: toIndex });
       s.fetchTabs();
-    } catch { /* tab may be gone */ }
+    } catch {
+      toast('Failed to reorder tabs');
+    }
   }, [s]);
 
   const toggleMute = useCallback(async (tabId: number) => {
+    const toast = (msg: string) => (s as any).addToast?.(msg, 'error');
     const tab = s.tabs.find((t) => t.tabId === tabId);
     if (!tab) return;
     const wasMuted = tab.isMuted;
@@ -272,7 +310,11 @@ export function useTabActions(s: HudState): TabActions {
     // Optimistically update local state immediately
     s.setTabs((prev) => prev.map((t) => t.tabId === tabId ? { ...t, isMuted: newMuted } : t));
     // Concurrently update Chrome's native mute state
-    await chrome.runtime.sendMessage({ type: 'mute-tab', payload: { tabId, muted: newMuted } });
+    try {
+      await sendMsg('mute-tab', { tabId, muted: newMuted });
+    } catch {
+      toast('Failed to toggle mute');
+    }
   }, [s, pushUndo]);
 
   const closeByDomain = useCallback(async (tabId: number, domain: string) => {
@@ -305,9 +347,14 @@ export function useTabActions(s: HudState): TabActions {
   }, [s]);
 
   const restoreSession = useCallback(async (sessionId: string) => {
-    await chrome.runtime.sendMessage({ type: 'restore-session', payload: { sessionId } });
-    s.fetchTabs();
-    s.fetchRecentTabs();
+    const toast = (msg: string) => (s as any).addToast?.(msg, 'error');
+    try {
+      await sendMsg('restore-session', { sessionId });
+      s.fetchTabs();
+      s.fetchRecentTabs();
+    } catch {
+      toast('Failed to restore session');
+    }
   }, [s]);
 
   const reopenLastClosed = useCallback(async () => {

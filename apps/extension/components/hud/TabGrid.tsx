@@ -3,6 +3,7 @@ import type { TabInfo } from '@/lib/types';
 import { GridCard } from './GridCard';
 import type { TabActions } from '@/lib/hooks/useTabActions';
 import type { ContextMenuItem } from './ContextMenu';
+import { useDragContext } from '@/lib/hooks/useDragContext';
 
 // Chrome's actual muted/pastel group colors
 const GROUP_COLORS: Record<string, string> = {
@@ -35,6 +36,8 @@ export function TabGrid({
   const containerRef = useRef<HTMLDivElement>(null);
   const dragFromRef = useRef<number | null>(null);
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
+  const drag = useDragContext();
+  const [dropGroupId, setDropGroupId] = useState<number | null>(null);
 
   // Measure immediately on mount (before paint) to avoid layout flash.
   // Falls back to rAF in case the flex parent hasn't been sized yet on the first commit.
@@ -238,8 +241,15 @@ export function TabGrid({
 
     const dragHandlers = isClosing ? {} : {
       draggable: true as const,
-      onDragStart: () => { dragFromRef.current = fi; },
-      onDragEnd: () => { dragFromRef.current = null; },
+      onDragStart: () => {
+        dragFromRef.current = fi;
+        // Populate drag context for cross-component drop targets
+        const allSelected = selectedTabs.has(tab.tabId)
+          ? tabs.filter((t) => selectedTabs.has(t.tabId)).map((t) => t.tabId)
+          : [];
+        drag.startDrag(tab.tabId, allSelected);
+      },
+      onDragEnd: () => { dragFromRef.current = null; drag.endDrag(); },
       onDragOver: (e: React.DragEvent) => e.preventDefault(),
       onDrop: (e: React.DragEvent) => {
         e.preventDefault();
@@ -354,6 +364,8 @@ export function TabGrid({
   return (
     <div
       ref={containerRef}
+      role="listbox"
+      aria-label="Tab list"
       className="w-full h-full flex justify-center"
       style={{ padding: pad, overflow: 'visible', alignItems }}
     >
@@ -386,23 +398,44 @@ export function TabGrid({
                     backgroundColor: color + '26',
                   }}
                 >
-                  {/* Colored header bar — full width, solid group color */}
+                  {/* Colored header bar — full width, solid group color, drop target */}
                   {seg.isFirstRow && (
-                    <div style={{
-                      background: color,
-                      height: FOLDER_TAB_H,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: '#000000bb',
-                      letterSpacing: '0.07em',
-                      textTransform: 'uppercase',
-                      whiteSpace: 'nowrap',
-                      paddingLeft: 12,
-                      paddingRight: 12,
-                    }}>
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDropGroupId(seg.groupId!);
+                      }}
+                      onDragLeave={() => setDropGroupId(null)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDropGroupId(null);
+                        if (drag.dragTabId != null) {
+                          const ids = drag.dragTabIds.length > 0 ? drag.dragTabIds : [drag.dragTabId];
+                          actions.addToGroup(ids, seg.groupId!, seg.title || '', seg.cards[0]?.tab.groupColor || 'grey');
+                        }
+                      }}
+                      style={{
+                        background: color,
+                        height: FOLDER_TAB_H,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: '#000000bb',
+                        letterSpacing: '0.07em',
+                        textTransform: 'uppercase',
+                        whiteSpace: 'nowrap',
+                        paddingLeft: 12,
+                        paddingRight: 12,
+                        transition: 'box-shadow 150ms ease, filter 150ms ease',
+                        boxShadow: dropGroupId === seg.groupId ? `0 0 16px ${color}80` : 'none',
+                        filter: dropGroupId === seg.groupId ? 'brightness(1.3)' : 'none',
+                        cursor: 'default',
+                      }}
+                    >
                       {seg.title || 'Group'}
                     </div>
                   )}

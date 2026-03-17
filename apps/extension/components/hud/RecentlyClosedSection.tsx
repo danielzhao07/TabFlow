@@ -76,6 +76,8 @@ export function RecentlyClosedSection({ recentTabs, onRestore }: RecentlyClosedS
     <div className="border-t border-white/10">
       <button
         onClick={() => setExpanded((prev) => !prev)}
+        aria-expanded={expanded}
+        aria-label={`Recently closed tabs, ${recentTabs.length} items`}
         className="w-full flex items-center gap-2 px-5 py-2 text-[11px] text-white/40 hover:text-white/60 transition-colors"
       >
         <svg

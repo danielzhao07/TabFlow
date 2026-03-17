@@ -23,12 +23,13 @@ interface BottomBarProps {
   query: string;
   onQueryChange: (q: string) => void;
   isAiMode?: boolean;
+  isAiSearching?: boolean;
   onAiClick?: () => void;
   onAiSubmit?: (query: string) => void;
   promptHistory?: string[];
 }
 
-export function BottomBar({ query, onQueryChange, isAiMode, onAiClick, onAiSubmit, promptHistory }: BottomBarProps) {
+export function BottomBar({ query, onQueryChange, isAiMode, isAiSearching, onAiClick, onAiSubmit, promptHistory }: BottomBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const historyIdxRef = useRef(-1);
   const savedInputRef = useRef('');
@@ -134,6 +135,10 @@ export function BottomBar({ query, onQueryChange, isAiMode, onAiClick, onAiSubmi
           <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none">
             <path d="M8 1l1.5 4.5L14 8l-4.5 1.5L8 15l-1.5-4.5L2 8l4.5-1.5L8 1z" fill="rgba(160,140,255,0.7)" />
           </svg>
+        ) : !isAiMode && query.startsWith('ai:') ? (
+          <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none" style={isAiSearching ? { animation: 'spin 2s linear infinite' } : undefined}>
+            <path d="M8 1l1.5 4.5L14 8l-4.5 1.5L8 15l-1.5-4.5L2 8l4.5-1.5L8 1z" fill="rgba(160,140,255,0.6)" />
+          </svg>
         ) : (
           <svg className="w-4 h-4 text-white/20 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -149,6 +154,7 @@ export function BottomBar({ query, onQueryChange, isAiMode, onAiClick, onAiSubmi
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             placeholder={isAiMode ? 'Ask flow anything…' : ''}
+            aria-label={isAiMode ? "AI prompt input" : "Search tabs"}
             className="bg-transparent text-[13px] leading-none placeholder-white/20 outline-none"
             style={{ color: isAiMode ? 'rgba(200,190,255,0.85)' : 'rgba(255,255,255,0.7)', width: '100%', height: 20, display: 'flex', alignItems: 'center' }}
             {...(!isAiMode ? { 'data-hud-search': 'true' } : {})}
@@ -201,6 +207,7 @@ export function BottomBar({ query, onQueryChange, isAiMode, onAiClick, onAiSubmi
         <button
           onClick={onAiClick}
           title="Ask flow (@)"
+          aria-label={isAiMode ? "Exit AI mode" : "Enter AI mode"}
           className="flex items-center justify-center transition-all"
           style={{
             width: '100%',

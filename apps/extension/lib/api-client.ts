@@ -119,3 +119,19 @@ export async function syncSettingsToCloud(settings: Record<string, unknown>): Pr
     body: JSON.stringify(settings),
   });
 }
+
+// ---- AI: semantic search ----
+export interface SemanticSearchResult {
+  url: string;
+  title: string;
+  similarity: number;
+  contentSummary?: string;
+}
+
+export async function semanticSearch(query: string, limit = 10): Promise<SemanticSearchResult[]> {
+  const data = await request<{ results: SemanticSearchResult[] }>('/api/ai/search', {
+    method: 'POST',
+    body: JSON.stringify({ query, limit }),
+  });
+  return data.results;
+}

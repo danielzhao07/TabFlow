@@ -47,6 +47,8 @@ export function SnoozedSection({ onWake }: SnoozedSectionProps) {
     <div className="border-t border-white/[0.06]">
       <button
         onClick={() => setCollapsed((prev) => !prev)}
+        aria-expanded={!collapsed}
+        aria-label="Snoozed tabs"
         className="w-full flex items-center gap-2 px-4 py-2 text-[11px] text-white/40 hover:text-white/60 transition-colors"
       >
         <svg

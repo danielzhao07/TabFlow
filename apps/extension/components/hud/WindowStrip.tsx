@@ -1,11 +1,18 @@
+import { useState } from 'react';
 import type { OtherWindow } from '@/lib/hooks/useHudState';
+import type { TabActions } from '@/lib/hooks/useTabActions';
+import { useDragContext } from '@/lib/hooks/useDragContext';
 
 interface WindowStripProps {
   windows: OtherWindow[];
   currentWindowId: number | undefined;
+  actions: TabActions;
 }
 
-export function WindowStrip({ windows, currentWindowId }: WindowStripProps) {
+export function WindowStrip({ windows, currentWindowId, actions }: WindowStripProps) {
+  const drag = useDragContext();
+  const [dropWindowId, setDropWindowId] = useState<number | null>(null);
+
   // Only show strip when there are multiple windows
   if (windows.length <= 1) return null;
 
@@ -16,6 +23,7 @@ export function WindowStrip({ windows, currentWindowId }: WindowStripProps) {
     >
       {windows.map((w) => {
         const isCurrent = w.windowId === currentWindowId;
+        const isDropTarget = dropWindowId === w.windowId;
         return (
           <button
             key={w.windowId}
@@ -24,11 +32,30 @@ export function WindowStrip({ windows, currentWindowId }: WindowStripProps) {
                 chrome.runtime.sendMessage({ type: 'focus-window', payload: { windowId: w.windowId } });
               }
             }}
+            onDragOver={(e) => { e.preventDefault(); setDropWindowId(w.windowId); }}
+            onDragLeave={() => setDropWindowId(null)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDropWindowId(null);
+              if (drag.dragTabId != null && !isCurrent) {
+                const ids = drag.dragTabIds.length > 0 ? drag.dragTabIds : [drag.dragTabId];
+                for (const id of ids) {
+                  actions.moveToWindow(id, w.windowId);
+                }
+              }
+            }}
+            aria-label={`Window: ${w.title}, ${w.tabCount} tabs${isCurrent ? ', current window' : ''}`}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg shrink-0 border transition-colors ${
               isCurrent
                 ? 'bg-cyan-400/10 border-cyan-400/25 text-white/70 cursor-default'
                 : 'bg-white/[0.04] border-white/[0.07] text-white/35 hover:bg-white/[0.08] hover:text-white/60 hover:border-white/[0.15]'
             }`}
+            style={{
+              boxShadow: isDropTarget ? '0 0 12px rgba(120,217,236,0.5)' : undefined,
+              borderColor: isDropTarget
+                ? 'rgba(120,217,236,0.6)'
+                : undefined,
+            }}
           >
             {w.faviconUrl ? (
               <img src={w.faviconUrl} alt="" className="w-3.5 h-3.5 rounded-sm shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />

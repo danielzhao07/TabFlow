@@ -11,6 +11,7 @@ import { WindowStrip } from './WindowStrip';
 import { WorkspaceSection } from './WorkspaceSection';
 import { AnalyticsBar } from './AnalyticsBar';
 import { UndoToast } from './UndoToast';
+import { Toast } from './Toast';
 import { CommandPalette, useCommands } from './CommandPalette';
 import { GroupSuggestions } from './GroupSuggestions';
 import { SettingsPanel } from './SettingsPanel';
@@ -21,6 +22,7 @@ import { markReactReady } from '@/lib/hud-bridge';
 import { AiAgentPanel, AiThinkingBar } from './AiAgentPanel';
 import type { AgentResult, AgentAction } from '@/lib/agent';
 import type { TabInfo } from '@/lib/types';
+import { DragProvider } from '@/lib/hooks/useDragContext';
 
 export function HudOverlay() {
   const s = useHudState();
@@ -34,6 +36,7 @@ export function HudOverlay() {
   const [aiPending, setAiPending] = useState(false);
   const [agentResult, setAgentResult] = useState<AgentResult | null>(null);
   const [completedCount, setCompletedCount] = useState(0);
+  const [groqUsage, setGroqUsage] = useState<{ prompt: number; completion: number; total: number } | null>(null);
   const [wsRefreshKey, setWsRefreshKey] = useState(0);
   const promptHistoryRef = useRef<string[]>([]);
   const aiExecutingRef = useRef(false);
@@ -113,6 +116,7 @@ export function HudOverlay() {
     const listener = (message: { type: string; tabId?: number; title?: string }) => {
       if (message.type === 'hide-hud') {
         s.hide();
+        setGroqUsage(null);
         return;
       }
 
@@ -123,6 +127,7 @@ export function HudOverlay() {
             return true;
           }
           s.hide();
+          setGroqUsage(null);
           return prev;
         });
       }
@@ -305,6 +310,9 @@ export function HudOverlay() {
       const result: AgentResult = { message: res.message, actions: res.actions ?? [] };
       setAgentResult(result);
       setAiPending(false);
+      if (res.usage) {
+        setGroqUsage(res.usage);
+      }
 
       // Snapshot full tab state before AI execution for undo
       const tabsBefore = new Map(s.tabs.map((t) => [t.tabId, {
@@ -442,6 +450,7 @@ export function HudOverlay() {
   if (!s.visible) return null;
 
   return (
+    <DragProvider>
     <div
       className="fixed inset-0 flex flex-col"
       style={{
@@ -454,6 +463,7 @@ export function HudOverlay() {
         if (e.target === e.currentTarget) {
           setShowSettings(false);
           setCtxMenu(null);
+          setGroqUsage(null);
           s.hide();
         }
       }}
@@ -544,6 +554,14 @@ export function HudOverlay() {
               commands={commands}
               onClose={() => s.setQuery('')}
             />
+          ) : s.loading ? (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-6 h-6 border-2 border-white/10 border-t-white/40 rounded-full"
+                     style={{ animation: 'spin 0.8s linear infinite' }} />
+                <span className="text-[12px] text-white/25">Loading tabs...</span>
+              </div>
+            </div>
           ) : (
             <TabGrid
               tabs={s.displayTabs}
@@ -577,7 +595,7 @@ export function HudOverlay() {
               return next;
             })}
           />
-          <WorkspaceSection key={wsRefreshKey} tabs={s.displayTabs} onRestore={s.hide} authUser={authUser} onRequestSignIn={() => setShowSettings(true)} />
+          <WorkspaceSection key={wsRefreshKey} tabs={s.displayTabs} onRestore={s.hide} authUser={authUser} onRequestSignIn={() => setShowSettings(true)} addToast={s.addToast} />
 
           {agentResult && (
             <AiAgentPanel
@@ -585,6 +603,7 @@ export function HudOverlay() {
               actions={agentResult.actions}
               completedCount={completedCount}
               onDismiss={() => { setAgentResult(null); setAiMode(false); }}
+              usage={groqUsage ?? undefined}
             />
           )}
           {aiPending && <AiThinkingBar />}
@@ -592,12 +611,14 @@ export function HudOverlay() {
           <WindowStrip
             windows={s.otherWindows}
             currentWindowId={s.currentWindowId}
+            actions={a}
           />
 
           <BottomBar
             query={aiMode ? aiQuery : s.query}
             onQueryChange={aiMode ? setAiQuery : s.setQuery}
             isAiMode={aiMode}
+            isAiSearching={s.aiSearchLoading}
             onAiClick={() => { setAiMode((p) => !p); setAiQuery(''); }}
             onAiSubmit={handleAiSubmit}
             promptHistory={promptHistoryRef.current}
@@ -622,6 +643,16 @@ export function HudOverlay() {
           onDismiss={() => s.setUndoToast(null)}
         />
       )}
+
+      {s.toasts.map((t, i) => (
+        <Toast
+          key={t.id}
+          {...t}
+          index={i}
+          onDismiss={(id) => s.setToasts((prev) => prev.filter((tt) => tt.id !== id))}
+        />
+      ))}
     </div>
+    </DragProvider>
   );
 }

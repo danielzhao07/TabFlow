@@ -207,6 +207,8 @@ export function GridCard({
   return (
     <>
       <div
+        role="option"
+        aria-label={`${tab.title || getDomain(tab.url)}${tab.isPinned ? ', pinned' : ''}${tab.isAudible ? ', playing audio' : ''}${tab.isMuted ? ', muted' : ''}${isBookmarked ? ', bookmarked' : ''}${isDuplicate ? ', duplicate' : ''}${tab.isDiscarded ? ', suspended' : ''}`}
         className="h-full flex flex-col rounded-xl overflow-hidden cursor-pointer select-none"
         style={{
           animationName: 'cardIn',
@@ -267,10 +269,10 @@ export function GridCard({
           </span>
 
           {/* Status icons */}
-          {tab.isPinned && <span className="text-[10px] text-amber-400/60 shrink-0">📌</span>}
-          {tab.isAudible && !tab.isMuted && <span className="text-[10px] text-green-400/70 shrink-0">♪</span>}
-          {tab.isMuted && <span className="text-[10px] text-red-400/70 shrink-0">🔇</span>}
-          {isBookmarked && <span className="text-[10px] text-amber-400/60 shrink-0">★</span>}
+          {tab.isPinned && <span className="text-[10px] text-amber-400/60 shrink-0" aria-hidden="true">📌</span>}
+          {tab.isAudible && !tab.isMuted && <span className="text-[10px] text-green-400/70 shrink-0" aria-hidden="true">♪</span>}
+          {tab.isMuted && <span className="text-[10px] text-red-400/70 shrink-0" aria-hidden="true">🔇</span>}
+          {isBookmarked && <span className="text-[10px] text-amber-400/60 shrink-0" aria-hidden="true">★</span>}
 
           {/* Close button */}
           <button
@@ -340,7 +342,7 @@ export function GridCard({
           {/* Duplicate badge */}
           {isDuplicate && (
             <div className="absolute top-1.5 left-1.5">
-              <span className="px-1.5 py-0.5 rounded-md bg-amber-400/20 text-[9px] text-amber-400">DUP</span>
+              <span className="px-1.5 py-0.5 rounded-md bg-amber-400/20 text-[9px] text-amber-400" aria-hidden="true">DUP</span>
             </div>
           )}
 

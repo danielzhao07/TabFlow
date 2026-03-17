@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { getWorkspaces, saveWorkspace, updateWorkspace, deleteWorkspace, type Workspace } from '@/lib/workspaces';
+import { useDragContext } from '@/lib/hooks/useDragContext';
 import type { TabInfo } from '@/lib/types';
 import type { TokenSet } from '@/lib/auth';
 
@@ -8,14 +9,19 @@ interface WorkspaceSectionProps {
   onRestore?: () => void;
   authUser: TokenSet | null;
   onRequestSignIn?: () => void;
+  addToast?: (message: string, type?: 'error' | 'success' | 'info') => void;
 }
 
-export function WorkspaceSection({ tabs, onRestore, authUser, onRequestSignIn }: WorkspaceSectionProps) {
+export function WorkspaceSection({ tabs, onRestore, authUser, onRequestSignIn, addToast }: WorkspaceSectionProps) {
+  const drag = useDragContext();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [saving, setSaving] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [showInput, setShowInput] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [dropWorkspaceId, setDropWorkspaceId] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -52,18 +58,22 @@ export function WorkspaceSection({ tabs, onRestore, authUser, onRequestSignIn }:
   };
 
   const handleRestore = (ws: Workspace) => {
+    setRestoringId(ws.id);
     const urls = ws.tabs
       .map((t) => t.url)
       .filter((u) => u && !u.startsWith('chrome://') && !u.startsWith('chrome-extension://') && !u.startsWith('about:'));
     if (urls.length > 0) {
       chrome.runtime.sendMessage({ type: 'restore-workspace', urls, groups: ws.tabs });
     }
-    onRestore?.();
+    if (onRestore) onRestore();
+    setRestoringId(null);
   };
 
   const handleDelete = async (id: string) => {
+    setDeletingId(id);
     await deleteWorkspace(id).catch(() => {});
     setWorkspaces((prev) => prev.filter((w) => w.id !== id));
+    setDeletingId(null);
   };
 
   if (!authUser) {
@@ -100,34 +110,72 @@ export function WorkspaceSection({ tabs, onRestore, authUser, onRequestSignIn }:
       {/* Workspace chips */}
       {workspaces.map((ws) => {
         const isHovered = hoveredId === ws.id;
+        const isDragOver = dropWorkspaceId === ws.id;
         return (
           <div
             key={ws.id}
             className="flex items-stretch shrink-0 rounded-md overflow-hidden"
             style={{
               height: 26,
-              background: isHovered ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)',
-              border: `1px solid ${isHovered ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.08)'}`,
-              transition: 'background 150ms, border-color 150ms',
+              background: isDragOver ? 'rgba(147,210,255,0.12)' : isHovered ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)',
+              border: `1px solid ${isDragOver ? 'rgba(147,210,255,0.4)' : isHovered ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.08)'}`,
+              boxShadow: isDragOver ? '0 0 10px rgba(147,210,255,0.3)' : undefined,
+              transition: 'background 150ms, border-color 150ms, box-shadow 150ms',
             }}
             onMouseEnter={() => setHoveredId(ws.id)}
             onMouseLeave={() => setHoveredId(null)}
+            onDragOver={(e) => { e.preventDefault(); setDropWorkspaceId(ws.id); }}
+            onDragLeave={() => setDropWorkspaceId(null)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDropWorkspaceId(null);
+              if (drag.dragTabId != null) {
+                const ids = drag.dragTabIds.length > 0 ? drag.dragTabIds : [drag.dragTabId];
+                const tabsToAdd = ids.map((id) => tabs.find((t) => t.tabId === id)).filter(Boolean);
+                if (tabsToAdd.length > 0) {
+                  const newTabs = tabsToAdd.map((t) => ({
+                    url: t!.url,
+                    title: t!.title,
+                    faviconUrl: t!.faviconUrl ?? '',
+                    groupTitle: t!.groupTitle,
+                    groupColor: t!.groupColor,
+                  }));
+                  const mergedTabs = [...ws.tabs, ...newTabs];
+                  updateWorkspace(ws.id, mergedTabs)
+                    .then((result) => {
+                      if (result) {
+                        setWorkspaces((prev) => prev.map((w) => w.id === ws.id ? result : w));
+                        addToast?.(`Added ${tabsToAdd.length} tab${tabsToAdd.length > 1 ? 's' : ''} to "${ws.name}"`, 'success');
+                      }
+                    })
+                    .catch(() => {
+                      addToast?.('Failed to add to workspace', 'error');
+                    });
+                }
+              }
+            }}
           >
             {/* Restore button */}
             <button
               className="flex items-center gap-2 px-2.5"
-              style={{ outline: 'none', cursor: 'pointer' }}
+              style={{ outline: 'none', cursor: 'pointer', opacity: restoringId === ws.id ? 0.5 : 1 }}
               onClick={() => handleRestore(ws)}
+              disabled={restoringId === ws.id}
               title={`Restore "${ws.name}" (${ws.tabs.length} tabs)`}
             >
-              {/* Favicon stack */}
-              <div className="flex -space-x-1 shrink-0">
-                {ws.tabs.slice(0, 3).map((t, i) => (
-                  <div key={i} className="w-3 h-3 rounded-sm bg-white/10 border border-white/[0.06] overflow-hidden shrink-0">
-                    {t.faviconUrl && <img src={t.faviconUrl} alt="" className="w-full h-full object-cover" />}
-                  </div>
-                ))}
-              </div>
+              {restoringId === ws.id ? (
+                <div className="w-3 h-3 border border-white/20 border-t-white/50 rounded-full"
+                     style={{ animation: 'spin 0.7s linear infinite' }} />
+              ) : (
+                /* Favicon stack */
+                <div className="flex -space-x-1 shrink-0">
+                  {ws.tabs.slice(0, 3).map((t, i) => (
+                    <div key={i} className="w-3 h-3 rounded-sm bg-white/10 border border-white/[0.06] overflow-hidden shrink-0">
+                      {t.faviconUrl && <img src={t.faviconUrl} alt="" className="w-full h-full object-cover" />}
+                    </div>
+                  ))}
+                </div>
+              )}
               <span className="text-[11px] font-medium" style={{ color: 'rgba(255,255,255,0.65)' }}>{ws.name}</span>
               <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.25)' }}>{ws.tabs.length}</span>
             </button>
@@ -160,15 +208,22 @@ export function WorkspaceSection({ tabs, onRestore, authUser, onRequestSignIn }:
                 color: 'rgba(255,255,255,0.2)',
                 outline: 'none',
                 cursor: 'pointer',
+                opacity: deletingId === ws.id ? 0.5 : 1,
               }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = '#f28b82'; (e.currentTarget as HTMLElement).style.background = 'rgba(242,139,130,0.12)'; }}
+              onMouseEnter={(e) => { if (deletingId !== ws.id) { (e.currentTarget as HTMLElement).style.color = '#f28b82'; (e.currentTarget as HTMLElement).style.background = 'rgba(242,139,130,0.12)'; } }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.2)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
               onClick={() => handleDelete(ws.id)}
+              disabled={deletingId === ws.id}
               title={`Delete "${ws.name}"`}
             >
-              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
+              {deletingId === ws.id ? (
+                <div className="w-3 h-3 border border-white/20 border-t-white/50 rounded-full"
+                     style={{ animation: 'spin 0.7s linear infinite' }} />
+              ) : (
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              )}
             </button>
           </div>
         );
