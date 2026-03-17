@@ -340,22 +340,19 @@ function domain(url: string): string {
   try { return new URL(url).hostname.replace('www.', ''); } catch { return url; }
 }
 
-// Called once on open to load all async data
+// Called once on open to load all async data — fires everything in parallel
 export async function loadHudData(state: HudState) {
-  const [settings, frecencyMap] = await Promise.all([
+  const [settings, frecencyMap, bookmarksRes, notesRes, windowsRes] = await Promise.all([
     getSettings(),
     getFrecencyMap(),
+    chrome.runtime.sendMessage({ type: 'get-bookmarks' }).catch(() => null),
+    chrome.runtime.sendMessage({ type: 'get-notes' }).catch(() => null),
+    chrome.runtime.sendMessage({ type: 'get-windows' }).catch(() => null),
   ]);
   state.setSettings(settings);
   const scores = new Map<string, number>();
   for (const [url, entry] of frecencyMap) scores.set(url, computeScore(entry));
   state.setFrecencyScores(scores);
-
-  const [bookmarksRes, notesRes, windowsRes] = await Promise.all([
-    chrome.runtime.sendMessage({ type: 'get-bookmarks' }),
-    chrome.runtime.sendMessage({ type: 'get-notes' }),
-    chrome.runtime.sendMessage({ type: 'get-windows' }),
-  ]);
   if (bookmarksRes?.bookmarks) {
     state.setBookmarkedUrls(new Set(bookmarksRes.bookmarks.map((b: TabBookmark) => b.url)));
   }

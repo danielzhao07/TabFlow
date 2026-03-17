@@ -85,26 +85,31 @@ export function HudOverlay() {
 
   // Listen for messages from background
   useEffect(() => {
-    // Helper: everything that needs to happen when the HUD opens
+    // Helper: everything that needs to happen when the HUD opens.
+    // Critical path (tabs + data) fires first; thumbnails, health, auth are deferred.
     const openHud = () => {
+      // Critical: show tabs ASAP
       s.fetchTabs();
-      s.fetchRecentTabs();
       loadHudData(s);
+      // Non-blocking: these can arrive after the grid is visible
+      s.fetchRecentTabs();
       s.loadUndoStack();
       chrome.storage.local.get('tabflow_prompt_history').then((result) => {
         if (Array.isArray(result.tabflow_prompt_history)) {
           promptHistoryRef.current = result.tabflow_prompt_history;
         }
       }).catch(() => {});
-      chrome.runtime.sendMessage({ type: 'get-all-thumbnails' }).then((res) => {
-        if (res?.thumbnails) {
-          s.setThumbnails(new Map(
-            Object.entries(res.thumbnails).map(([k, v]) => [Number(k), v as string])
-          ));
-        }
-      }).catch(() => {});
-      checkHealth().catch(() => {});
-      getStoredTokens().then(setAuthUser);
+      // Deferred: thumbnails and auth don't block the initial render
+      requestAnimationFrame(() => {
+        chrome.runtime.sendMessage({ type: 'get-all-thumbnails' }).then((res) => {
+          if (res?.thumbnails) {
+            s.setThumbnails(new Map(
+              Object.entries(res.thumbnails).map(([k, v]) => [Number(k), v as string])
+            ));
+          }
+        }).catch(() => {});
+        getStoredTokens().then(setAuthUser);
+      });
     };
 
     // Check if toggle-hud arrived before React mounted (race condition fix)

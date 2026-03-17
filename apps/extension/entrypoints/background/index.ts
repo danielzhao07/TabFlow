@@ -520,11 +520,28 @@ export default defineBackground(() => {
         await new Promise((r) => setTimeout(r, 120));
         if (pendingToggleId !== myToggleId) { hudVisible = false; return; }
         hudTabId = realTab.tabId;
-        // Send toggle IMMEDIATELY, capture thumbnails in background
-        chrome.tabs.sendMessage(realTab.tabId, { type: 'toggle-hud' }).catch(() => {
-          hudVisible = false;
-          hudTabId = undefined;
-          hudHideTime = Date.now();
+        // Send toggle IMMEDIATELY, inject on demand if content script not loaded
+        chrome.tabs.sendMessage(realTab.tabId, { type: 'toggle-hud' }).catch(async () => {
+          try {
+            await chrome.scripting.insertCSS({
+              target: { tabId: realTab.tabId },
+              files: ['content-scripts/content.css'],
+            });
+            await chrome.scripting.executeScript({
+              target: { tabId: realTab.tabId },
+              files: ['content-scripts/content.js'],
+            });
+            await new Promise((r) => setTimeout(r, 80));
+            chrome.tabs.sendMessage(realTab.tabId, { type: 'toggle-hud' }).catch(() => {
+              hudVisible = false;
+              hudTabId = undefined;
+              hudHideTime = Date.now();
+            });
+          } catch {
+            hudVisible = false;
+            hudTabId = undefined;
+            hudHideTime = Date.now();
+          }
         });
         // Capture thumbnails in background and push when ready
         captureAllWindowsActiveTabs(true).then(() => {
@@ -544,11 +561,29 @@ export default defineBackground(() => {
         hudTabId = hudVisible ? activeTab.id : undefined;
         if (wasVisible) hudHideTime = Date.now(); // stamp hide time for grace period
         // Send toggle IMMEDIATELY so the HUD opens without delay.
-        chrome.tabs.sendMessage(activeTab.id, { type: 'toggle-hud' }).catch(() => {
-          // Content script not loaded on this tab
-          hudVisible = false;
-          hudTabId = undefined;
-          hudHideTime = Date.now();
+        // If the content script isn't loaded yet, inject it on demand and retry.
+        chrome.tabs.sendMessage(activeTab.id, { type: 'toggle-hud' }).catch(async () => {
+          try {
+            await chrome.scripting.insertCSS({
+              target: { tabId: activeTab.id! },
+              files: ['content-scripts/content.css'],
+            });
+            await chrome.scripting.executeScript({
+              target: { tabId: activeTab.id! },
+              files: ['content-scripts/content.js'],
+            });
+            // Brief pause for React to mount, then retry toggle
+            await new Promise((r) => setTimeout(r, 80));
+            chrome.tabs.sendMessage(activeTab.id!, { type: 'toggle-hud' }).catch(() => {
+              hudVisible = false;
+              hudTabId = undefined;
+              hudHideTime = Date.now();
+            });
+          } catch {
+            hudVisible = false;
+            hudTabId = undefined;
+            hudHideTime = Date.now();
+          }
         });
         // Capture thumbnails in the background AFTER the HUD opens.
         // Once captures complete, push updated thumbnails to the HUD.
