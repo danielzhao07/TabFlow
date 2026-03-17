@@ -135,8 +135,8 @@ export function BottomBar({ query, onQueryChange, isAiMode, isAiSearching, onAiC
           <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none">
             <path d="M8 1l1.5 4.5L14 8l-4.5 1.5L8 15l-1.5-4.5L2 8l4.5-1.5L8 1z" fill="rgba(160,140,255,0.7)" />
           </svg>
-        ) : !isAiMode && query.startsWith('ai:') ? (
-          <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none" style={isAiSearching ? { animation: 'spin 2s linear infinite' } : undefined}>
+        ) : isAiSearching ? (
+          <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none" style={{ animation: 'spin 2s linear infinite' }}>
             <path d="M8 1l1.5 4.5L14 8l-4.5 1.5L8 15l-1.5-4.5L2 8l4.5-1.5L8 1z" fill="rgba(160,140,255,0.6)" />
           </svg>
         ) : (

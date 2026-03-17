@@ -171,15 +171,19 @@ export function useHudState(): HudState {
     chrome.storage.local.set({ tabflow_undo_stack: undoStack }).catch(() => {});
   }, [undoStack]);
 
-  // AI semantic search: detect `ai:` prefix and call backend with debounce
+  // Compute local Fuse.js results for use in the fallback check below
+  const localResults = !query || isCommandMode
+    ? sortedTabs
+    : searchTabs(sortedTabs, query, settings?.searchThreshold, notesMap.size > 0 ? notesMap : undefined, duplicateUrls);
+
+  // AI semantic search: auto-triggers as fallback when local search returns < 3 results
+  // and the query is at least 3 characters. Debounced by 500ms to avoid spamming the API.
   useEffect(() => {
-    if (!query.startsWith('ai:')) {
+    const searchQuery = query.trim();
+    // Only trigger semantic fallback when local results are sparse
+    if (!searchQuery || searchQuery.length < 3 || isCommandMode || localResults.length >= 3) {
       setAiSearchResults(null);
-      return;
-    }
-    const searchQuery = query.slice(3).trim();
-    if (!searchQuery) {
-      setAiSearchResults(null);
+      setAiSearchLoading(false);
       return;
     }
     setAiSearchLoading(true);
@@ -198,11 +202,10 @@ export function useHudState(): HudState {
         .catch(() => {
           setAiSearchResults(null);
           setAiSearchLoading(false);
-          addToast('AI search failed, using local search', 'error');
         });
-    }, 300);
+    }, 500);
     return () => clearTimeout(timer);
-  }, [query, tabs, addToast]);
+  }, [query, tabs, localResults.length, isCommandMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hide = useCallback(() => {
     setAnimatingIn(false);
@@ -286,11 +289,16 @@ export function useHudState(): HudState {
   const isCommandMode = query.startsWith('>');
   const commandQuery = isCommandMode ? query.slice(1).trim() : '';
 
-  const filteredTabs = aiSearchResults
-    ? aiSearchResults
-    : (!query || isCommandMode
-      ? sortedTabs
-      : searchTabs(sortedTabs, query, settings?.searchThreshold, notesMap.size > 0 ? notesMap : undefined, duplicateUrls));
+  // Merge: show local results, and if semantic search found extras, append them
+  const filteredTabs = (() => {
+    if (aiSearchResults && aiSearchResults.length > 0) {
+      // Combine: local results first, then AI results not already in local
+      const localIds = new Set(localResults.map((t) => t.tabId));
+      const extras = aiSearchResults.filter((t) => !localIds.has(t.tabId));
+      return [...localResults, ...extras];
+    }
+    return localResults;
+  })();
 
   const groupFilteredTabs = groupFilter.size > 0
     ? filteredTabs.filter((t) => t.groupId != null && groupFilter.has(t.groupId))
