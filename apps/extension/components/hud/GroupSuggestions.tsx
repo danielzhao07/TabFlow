@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { TabInfo } from '@/lib/types';
 import type { TabActions } from '@/lib/hooks/useTabActions';
 import type { SmartSuggestion, GroupAddSuggestion } from '@/lib/group-utils';
-import { getDomain, getGroupTitle, getSmartSuggestions, getGroupAddSuggestions } from '@/lib/group-utils';
+import { getDomain, getSmartSuggestions, getGroupAddSuggestions } from '@/lib/group-utils';
 import { useDragContext } from '@/lib/hooks/useDragContext';
 
 const GROUP_COLORS: Record<string, string> = {
@@ -33,9 +33,7 @@ export function GroupSuggestions({
   const [hoveredId, setHoveredId] = useState<number | string | null>(null);
   const [suggestions, setSuggestions] = useState<SmartSuggestion[]>([]);
   const [addSuggestions, setAddSuggestions] = useState<GroupAddSuggestion[]>([]);
-  const descCacheRef = useRef<Record<number, string>>({});
 
-  // Compute suggestions: first from titles only, then enhanced with descriptions
   useEffect(() => {
     const existingTitles = new Set<string>();
     for (const tab of tabs) {
@@ -43,45 +41,20 @@ export function GroupSuggestions({
     }
     const ungrouped = tabs.filter((t) => !t.groupId);
     const grouped = tabs.filter((t) => !!t.groupId);
-
-    // Phase 1: immediate title-based suggestions
     setSuggestions(getSmartSuggestions(ungrouped, existingTitles));
     setAddSuggestions(getGroupAddSuggestions(ungrouped, grouped));
-
-    // Phase 2: fetch descriptions and re-compute with richer context
-    if (ungrouped.length < 2 && grouped.length === 0) return;
-    const allTabIds = tabs.map((t) => t.tabId);
-    // Only fetch descriptions for tabs we haven't cached yet
-    const uncachedIds = allTabIds.filter((id) => !(id in descCacheRef.current));
-    if (uncachedIds.length === 0) {
-      // All cached — re-run with full descriptions immediately
-      setSuggestions(getSmartSuggestions(ungrouped, existingTitles, descCacheRef.current));
-      setAddSuggestions(getGroupAddSuggestions(ungrouped, grouped, descCacheRef.current));
-      return;
-    }
-    let cancelled = false;
-    chrome.runtime.sendMessage({ type: 'get-tab-descriptions', payload: { tabIds: uncachedIds } })
-      .then((res) => {
-        if (cancelled) return;
-        const fetched: Record<number, string> = res?.descriptions ?? {};
-        Object.assign(descCacheRef.current, fetched);
-        setSuggestions(getSmartSuggestions(ungrouped, existingTitles, descCacheRef.current));
-        setAddSuggestions(getGroupAddSuggestions(ungrouped, grouped, descCacheRef.current));
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
   }, [tabs]);
 
   const existingGroups = useMemo(() => {
     const groups = new Map<number, { groupId: number; title: string; color: string; count: number }>();
     for (const tab of tabs) {
-      if (!tab.groupId || !tab.groupColor) continue;
+      if (!tab.groupId) continue;
       const existing = groups.get(tab.groupId);
       if (existing) existing.count++;
       else groups.set(tab.groupId, {
         groupId: tab.groupId,
         title: tab.groupTitle || getDomain(tab.url),
-        color: GROUP_COLORS[tab.groupColor] ?? '#9aa0a6',
+        color: GROUP_COLORS[tab.groupColor ?? ''] ?? '#9aa0a6',
         count: 1,
       });
     }

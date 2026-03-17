@@ -192,9 +192,13 @@ export function useHudState(): HudState {
   }, []);
 
   const fetchTabs = useCallback(async () => {
-    const response = await chrome.runtime.sendMessage({ type: 'get-tabs' });
-    if (response?.tabs) setTabs(response.tabs);
-    if (response?.currentWindowId) setCurrentWindowId(response.currentWindowId);
+    try {
+      const response = await chrome.runtime.sendMessage({ type: 'get-tabs' });
+      if (response?.tabs) setTabs(response.tabs);
+      if (response?.currentWindowId) setCurrentWindowId(response.currentWindowId);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const fetchRecentTabs = useCallback(async () => {
@@ -343,25 +347,28 @@ function domain(url: string): string {
 
 // Called once on open to load all async data — fires everything in parallel
 export async function loadHudData(state: HudState) {
-  const [settings, frecencyMap, bookmarksRes, notesRes, windowsRes] = await Promise.all([
-    getSettings(),
-    getFrecencyMap(),
-    chrome.runtime.sendMessage({ type: 'get-bookmarks' }).catch(() => null),
-    chrome.runtime.sendMessage({ type: 'get-notes' }).catch(() => null),
-    chrome.runtime.sendMessage({ type: 'get-windows' }).catch(() => null),
-  ]);
-  state.setSettings(settings);
-  const scores = new Map<string, number>();
-  for (const [url, entry] of frecencyMap) scores.set(url, computeScore(entry));
-  state.setFrecencyScores(scores);
-  if (bookmarksRes?.bookmarks) {
-    state.setBookmarkedUrls(new Set(bookmarksRes.bookmarks.map((b: TabBookmark) => b.url)));
+  try {
+    const [settings, frecencyMap, bookmarksRes, notesRes, windowsRes] = await Promise.all([
+      getSettings(),
+      getFrecencyMap(),
+      chrome.runtime.sendMessage({ type: 'get-bookmarks' }).catch(() => null),
+      chrome.runtime.sendMessage({ type: 'get-notes' }).catch(() => null),
+      chrome.runtime.sendMessage({ type: 'get-windows' }).catch(() => null),
+    ]);
+    state.setSettings(settings);
+    const scores = new Map<string, number>();
+    for (const [url, entry] of frecencyMap) scores.set(url, computeScore(entry));
+    state.setFrecencyScores(scores);
+    if (bookmarksRes?.bookmarks) {
+      state.setBookmarkedUrls(new Set(bookmarksRes.bookmarks.map((b: TabBookmark) => b.url)));
+    }
+    if (notesRes?.notes) {
+      state.setNotesMap(new Map(Object.entries(notesRes.notes)));
+    }
+    if (windowsRes?.windows) {
+      state.setOtherWindows(windowsRes.windows);
+    }
+  } finally {
+    state.setLoading(false);
   }
-  if (notesRes?.notes) {
-    state.setNotesMap(new Map(Object.entries(notesRes.notes)));
-  }
-  if (windowsRes?.windows) {
-    state.setOtherWindows(windowsRes.windows);
-  }
-  state.setLoading(false);
 }

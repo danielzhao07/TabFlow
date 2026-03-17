@@ -72,6 +72,18 @@ let hudTabId: number | undefined;
 // Timestamp of the last HUD hide — captures are blocked for 500ms after hiding
 // to generously cover the 180ms CSS fade-out animation and any async timing slack.
 let hudHideTime = 0;
+
+// Update HUD visibility state and persist it to chrome.storage.session so it
+// survives MV3 service worker restarts.  Without persistence, the SW can restart
+// while the HUD is open, reset hudVisible to false, and then capture a screenshot
+// that includes the overlay.
+function setHudState(visible: boolean, tabId?: number): void {
+  hudVisible = visible;
+  hudTabId = visible ? (tabId ?? hudTabId) : undefined;
+  chrome.storage.session
+    .set({ tabflow_hud_visible: visible, tabflow_hud_tab_id: hudTabId ?? null })
+    .catch(() => {});
+}
 // Double-press (Alt+Q+Q) detection — tracked in background for zero-latency timing
 let lastCommandTime = 0;
 let pendingToggleId = 0;
@@ -80,8 +92,60 @@ let pendingToggleId = 0;
 let activeTabFocusStart = Date.now();
 let activeTabMeta: { tabId: number; url: string; domain: string; title: string } | null = null;
 
-// Groq token usage accumulated across the session
-let groqSessionTokens = { prompt: 0, completion: 0, total: 0 };
+// Groq token usage — persisted to storage, auto-resets on new calendar day
+let groqUsageData = { prompt: 0, completion: 0, total: 0, date: '' };
+
+async function loadGroqUsage() {
+  try {
+    const res = await chrome.storage.local.get('groqUsageData');
+    const today = new Date().toISOString().slice(0, 10);
+    if (res.groqUsageData?.date === today) {
+      groqUsageData = res.groqUsageData;
+    } else {
+      groqUsageData = { prompt: 0, completion: 0, total: 0, date: today };
+      chrome.storage.local.set({ groqUsageData });
+    }
+  } catch { /* ignore */ }
+}
+
+function addGroqUsage(u: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (groqUsageData.date !== today) {
+    groqUsageData = { prompt: 0, completion: 0, total: 0, date: today };
+  }
+  groqUsageData.prompt += u.prompt_tokens ?? 0;
+  groqUsageData.completion += u.completion_tokens ?? 0;
+  groqUsageData.total += u.total_tokens ?? 0;
+  chrome.storage.local.set({ groqUsageData });
+}
+
+function parseGroqError(body: string, status: number): string {
+  try {
+    const json = JSON.parse(body);
+    const msg: string = json?.error?.message ?? '';
+    const code: string = json?.error?.code ?? '';
+    if (code === 'rate_limit_exceeded' || msg.includes('Rate limit')) {
+      // Parse retry time — round to whole minutes, drop seconds
+      const mMatch = msg.match(/try again in (\d+)m[\d.]*s/i);
+      const sMatch = !mMatch && msg.match(/try again in ([\d.]+)s/i);
+      let retryStr = '';
+      if (mMatch) {
+        const mins = parseInt(mMatch[1]);
+        retryStr = ` Try again in ~${mins} min.`;
+      } else if (sMatch) {
+        retryStr = ' Try again in a moment.';
+      }
+
+      if (msg.includes('per minute') || msg.includes('TPM') || msg.includes('RPM')) {
+        return 'Too many requests sent at once. Wait a moment and try again.';
+      }
+      return `Token limit reached.${retryStr}`;
+    }
+    if (status === 401) return 'Invalid Groq API key — get a new one at console.groq.com/keys.';
+    if (msg) return msg.length > 120 ? msg.slice(0, 120) + '…' : msg;
+  } catch { /* not JSON */ }
+  return `Groq error (${status}). Check your API key in settings.`;
+}
 
 function getDomainFromUrl(url: string): string {
   try { return new URL(url).hostname.replace('www.', ''); } catch { return ''; }
@@ -190,11 +254,7 @@ async function tryAIGroupName(tabs: Array<{ title: string; url: string }>): Prom
 
     if (!res.ok) return null;
     const data = await res.json();
-    if (data.usage) {
-      groqSessionTokens.prompt += data.usage.prompt_tokens ?? 0;
-      groqSessionTokens.completion += data.usage.completion_tokens ?? 0;
-      groqSessionTokens.total += data.usage.total_tokens ?? 0;
-    }
+    if (data.usage) addGroqUsage(data.usage);
     const text = data?.choices?.[0]?.message?.content;
     if (!text) return null;
     const parsed = JSON.parse(text);
@@ -205,16 +265,65 @@ async function tryAIGroupName(tabs: Array<{ title: string; url: string }>): Prom
   }
 }
 
+/**
+ * Injects a minimal frosted-glass loading overlay into a tab directly from the
+ * background, giving the user instant visual feedback while the full content
+ * script is still being injected. Cleaned up by hideLoadingOverlay() in hud-bridge.ts.
+ */
+function injectLoadingOverlay(tabId: number): void {
+  chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => {
+      const ID = '_tf_loading';
+      if (document.getElementById(ID)) return;
+      const el = document.createElement('div');
+      el.id = ID;
+      el.style.cssText =
+        'position:fixed;inset:0;z-index:2147483646;display:flex;align-items:center;' +
+        'justify-content:center;pointer-events:none;' +
+        'background:rgba(0,0,0,0);backdrop-filter:blur(0px);' +
+        'transition:background 120ms ease-out,backdrop-filter 120ms ease-out';
+      const s = document.createElement('div');
+      s.style.cssText =
+        'width:28px;height:28px;border-radius:50%;' +
+        'border:2px solid rgba(255,255,255,0.08);border-top-color:rgba(255,255,255,0.4);' +
+        'animation:_tf_spin 0.8s linear infinite';
+      const css = document.createElement('style');
+      css.textContent = '@keyframes _tf_spin{to{transform:rotate(360deg)}}';
+      el.append(css, s);
+      document.documentElement.appendChild(el);
+      requestAnimationFrame(() => {
+        const e = document.getElementById(ID);
+        if (e) { e.style.background = 'rgba(0,0,0,0.45)'; e.style.backdropFilter = 'blur(28px) saturate(180%)'; }
+      });
+      // Safety: auto-remove after 5s in case React never mounts
+      setTimeout(() => { document.getElementById(ID)?.remove(); }, 5000);
+    },
+  }).catch(() => {});
+}
+
 export default defineBackground(() => {
+  // Set on every service worker startup — MV3 workers restart frequently and
+  // setUninstallURL does not persist across restarts, so onInstalled alone is not enough.
+  chrome.runtime.setUninstallURL('https://tabflow.tech/goodbye.html');
+
   // Initialize MRU list on install/startup
   initializeMRU();
 
   // Restore thumbnails from last session
   loadCachedThumbnails();
 
-  // On startup, capture the active tab in every window so thumbnails are
-  // available immediately if the user opens the HUD right away.
-  captureAllWindowsActiveTabs();
+  // Restore HUD visibility state persisted by setHudState() so that if the MV3
+  // service worker restarted while the HUD was open we don't accidentally capture
+  // a screenshot that includes the overlay.
+  chrome.storage.session.get(['tabflow_hud_visible', 'tabflow_hud_tab_id']).then((result) => {
+    const r = result as Record<string, unknown>;
+    if (r.tabflow_hud_visible === true) {
+      hudVisible = true;
+      hudTabId = typeof r.tabflow_hud_tab_id === 'number' ? r.tabflow_hud_tab_id : undefined;
+    }
+    captureAllWindowsActiveTabs();
+  }).catch(() => { captureAllWindowsActiveTabs(); });
 
   // First install: auto-trigger sign-in popup + set uninstall feedback URL
   chrome.runtime.onInstalled.addListener(async ({ reason }) => {
@@ -336,24 +445,23 @@ export default defineBackground(() => {
 
     // If the HUD was open on the tab that just closed, reopen it on the new active tab
     if (hudVisible && hudTabId === tabId) {
-      hudTabId = undefined;
+      setHudState(true); // clear tabId while we find the new tab
       // Brief delay so Chrome finishes activating the next tab
       setTimeout(async () => {
         try {
           const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
           if (activeTab?.id && canSendMessage(activeTab.url)) {
-            hudTabId = activeTab.id;
+            setHudState(true, activeTab.id);
             chrome.tabs.sendMessage(activeTab.id, { type: 'toggle-hud' }).catch(() => {
-              hudVisible = false;
-              hudTabId = undefined;
+              setHudState(false);
               hudHideTime = Date.now();
             });
           } else {
-            hudVisible = false;
+            setHudState(false);
             hudHideTime = Date.now();
           }
         } catch {
-          hudVisible = false;
+          setHudState(false);
           hudHideTime = Date.now();
         }
       }, 150);
@@ -514,8 +622,7 @@ export default defineBackground(() => {
         }
         // Close the HUD on the current tab if it's open
         if (hudVisible && activeTabId) {
-          hudVisible = false;
-          hudTabId = undefined;
+          setHudState(false);
           hudHideTime = Date.now();
           chrome.tabs.sendMessage(activeTabId, { type: 'hide-hud' }).catch(() => {});
         }
@@ -536,26 +643,25 @@ export default defineBackground(() => {
         if (!realTab) return;
         // Set hudVisible IMMEDIATELY to block onActivated captures from
         // snapshotting during the tab switch transition.
-        hudVisible = true;
+        setHudState(true);
         await chrome.tabs.update(realTab.tabId, { active: true }).catch(() => {});
         await chrome.windows.update(realTab.windowId, { focused: true }).catch(() => {});
-        if (pendingToggleId !== myToggleId) { hudVisible = false; return; }
+        if (pendingToggleId !== myToggleId) { setHudState(false); return; }
         // Brief pause so Chrome has time to activate the tab
         await new Promise((r) => setTimeout(r, 120));
-        if (pendingToggleId !== myToggleId) { hudVisible = false; return; }
-        hudTabId = realTab.tabId;
+        if (pendingToggleId !== myToggleId) { setHudState(false); return; }
+        setHudState(true, realTab.tabId);
         // Send toggle IMMEDIATELY, inject on demand if content script not loaded
         chrome.tabs.sendMessage(realTab.tabId, { type: 'toggle-hud' }).catch(async () => {
+          injectLoadingOverlay(realTab.tabId);
           const ready = await injectAndWaitForReady(realTab.tabId);
           if (ready) {
             chrome.tabs.sendMessage(realTab.tabId, { type: 'toggle-hud' }).catch(() => {
-              hudVisible = false;
-              hudTabId = undefined;
+              setHudState(false);
               hudHideTime = Date.now();
             });
           } else {
-            hudVisible = false;
-            hudTabId = undefined;
+            setHudState(false);
             hudHideTime = Date.now();
           }
         });
@@ -574,8 +680,7 @@ export default defineBackground(() => {
       console.log('[TabFlow] toggle-hud on tab', activeTab?.id, 'url:', activeTab?.url, 'hudVisible:', hudVisible);
       if (activeTab?.id) {
         const wasVisible = hudVisible;
-        hudVisible = !hudVisible;
-        hudTabId = hudVisible ? activeTab.id : undefined;
+        setHudState(!wasVisible, !wasVisible ? activeTab.id : undefined);
         if (wasVisible) hudHideTime = Date.now(); // stamp hide time for grace period
         // Send toggle IMMEDIATELY so the HUD opens without delay.
         // If the content script isn't loaded yet, inject it on demand and retry.
@@ -583,6 +688,7 @@ export default defineBackground(() => {
           console.log('[TabFlow] toggle-hud delivered to tab', activeTab.id);
         }).catch(async (err) => {
           console.warn('[TabFlow] toggle-hud failed, injecting content script...', err?.message);
+          injectLoadingOverlay(activeTab.id!);
           const ready = await injectAndWaitForReady(activeTab.id!);
           console.log('[TabFlow] injection result:', ready);
           if (ready) {
@@ -590,14 +696,12 @@ export default defineBackground(() => {
               console.log('[TabFlow] toggle-hud delivered after injection');
             }).catch((e) => {
               console.error('[TabFlow] toggle-hud failed even after injection', e?.message);
-              hudVisible = false;
-              hudTabId = undefined;
+              setHudState(false);
               hudHideTime = Date.now();
             });
           } else {
             console.error('[TabFlow] injection failed, giving up');
-            hudVisible = false;
-            hudTabId = undefined;
+            setHudState(false);
             hudHideTime = Date.now();
           }
         });
@@ -1078,9 +1182,17 @@ export default defineBackground(() => {
 
     if (message.type === 'create-workspace') {
       const { name } = message.payload;
+      const senderWindowId = sender.tab?.windowId;
       (async () => {
         try {
-          const chromeTabs = await chrome.tabs.query({});
+          // Only capture tabs from the sender's window so group names match exactly.
+          // If called from popup (no sender tab), fall back to the last focused window.
+          let windowId = senderWindowId;
+          if (!windowId) {
+            const win = await chrome.windows.getLastFocused({ populate: false }).catch(() => null);
+            windowId = win?.id;
+          }
+          const chromeTabs = await chrome.tabs.query(windowId ? { windowId } : {});
           // Fetch group info for all grouped tabs
           const groupIds = [...new Set(chromeTabs.map((t) => t.groupId).filter((id) => id !== -1))];
           const groupMap = new Map<number, { title: string; color: string }>();
@@ -1237,12 +1349,12 @@ export default defineBackground(() => {
         const toClose = allTabs.filter((t) => {
           if (t.id === excludeTabId) return false;
           try {
-            return new URL(t.url || '').hostname.replace('www.', '') === domain;
+            const host = new URL(t.url || '').hostname.replace('www.', '');
+            // Match exact domain OR any subdomain (e.g. "google.com" matches "mail.google.com")
+            return host === domain || host.endsWith('.' + domain);
           } catch { return false; }
         });
-        for (const t of toClose) {
-          if (t.id) chrome.tabs.remove(t.id).catch(() => {});
-        }
+        await Promise.all(toClose.filter((t) => t.id).map((t) => chrome.tabs.remove(t.id!).catch(() => {})));
         sendResponse({ success: true, count: toClose.length });
       })();
       return true;
@@ -1265,9 +1377,15 @@ export default defineBackground(() => {
 
     // HUD visibility tracking — so we skip thumbnail captures while HUD is showing
     if (message.type === 'hud-closed') {
-      hudVisible = false;
-      hudTabId = undefined;
+      setHudState(false);
       hudHideTime = Date.now(); // start grace period so captures don't catch the fade-out
+      sendResponse({ success: true });
+      return true;
+    }
+
+    // Relay from popup: broadcast workspace changes to all tabs (including the HUD)
+    if (message.type === 'workspace-updated') {
+      broadcastSpecific({ type: 'workspace-updated' });
       sendResponse({ success: true });
       return true;
     }
@@ -1278,51 +1396,53 @@ export default defineBackground(() => {
         try {
           const tabDefs: { url: string; groupTitle?: string; groupColor?: string }[] =
             message.groups || message.urls.map((u: string) => ({ url: u }));
-          const urls = tabDefs.map((t) => t.url).filter(Boolean);
-          if (urls.length === 0) { sendResponse({ success: false }); return; }
 
-          // Create new window with the first URL; remaining tabs added after
-          const newWindow = await chrome.windows.create({ url: urls[0], focused: true, state: 'maximized' });
+          // Filter invalid URLs FIRST — createdTabIds[i] must align with validDefs[i]
+          const validDefs = tabDefs.filter((t) =>
+            t.url && !t.url.startsWith('chrome://') && !t.url.startsWith('chrome-extension://') && !t.url.startsWith('about:')
+          );
+          if (validDefs.length === 0) { sendResponse({ success: false }); return; }
+          const urls = validDefs.map((t) => t.url as string);
+
+          // Create window with all tabs atomically
+          const newWindow = await chrome.windows.create({ url: urls, focused: true, state: 'maximized' });
           const windowId = newWindow.id!;
-          const firstTabId = newWindow.tabs?.[0]?.id;
 
-          // Create remaining tabs in the new window
-          const createdTabIds: (number | undefined)[] = [firstTabId];
-          for (let i = 1; i < urls.length; i++) {
-            const t = await chrome.tabs.create({ url: urls[i], windowId, active: false });
-            createdTabIds.push(t.id);
-          }
+          // Query and sort by index — more reliable than newWindow.tabs ordering
+          const windowTabs = await chrome.tabs.query({ windowId });
+          windowTabs.sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+          const createdTabIds = windowTabs.map((t) => t.id);
 
-          // Group tabs by groupTitle+groupColor
-          const groupMap = new Map<string, { color: string; tabIds: number[] }>();
-          for (let i = 0; i < tabDefs.length; i++) {
-            const def = tabDefs[i];
+          // Build group map — store title directly (not embedded in key) to avoid extraction bugs
+          const groupMap = new Map<string, { title: string; color: string; tabIds: number[] }>();
+          for (let i = 0; i < validDefs.length; i++) {
+            const def = validDefs[i];
             const tabId = createdTabIds[i];
             if (def.groupTitle && def.groupColor && tabId) {
-              const key = `${def.groupTitle}::${def.groupColor}`;
+              const key = `${def.groupTitle}|||${def.groupColor}`;
               const existing = groupMap.get(key);
               if (existing) existing.tabIds.push(tabId);
-              else groupMap.set(key, { color: def.groupColor, tabIds: [tabId] });
+              else groupMap.set(key, { title: def.groupTitle, color: def.groupColor, tabIds: [tabId] });
             }
           }
 
-          // Recreate tab groups in the new window, then update MRU immediately so the
-          // HUD shows group names on first open without waiting for onUpdated propagation.
-          for (const [key, { color, tabIds }] of groupMap) {
-            const title = key.split('::')[0];
+          // Apply all groups in parallel — pure metadata, instant
+          await Promise.all([...groupMap.values()].map(async ({ title, color, tabIds }) => {
             const groupId = await chrome.tabs.group({ tabIds, createProperties: { windowId } });
             await chrome.tabGroups.update(groupId, {
               title,
               color: color as chrome.tabGroups.ColorEnum,
             }).catch(() => {});
-            // Eagerly write group info to MRU so fetchTabs returns correct names immediately
-            for (const tabId of tabIds) {
-              if (tabId) {
-                await updateTab(tabId, { groupId, groupTitle: title, groupColor: color }).catch(() => {});
-              }
-            }
-          }
-          // One final broadcast after everything is fully set up
+            await Promise.all(
+              tabIds.map((tabId) => updateTab(tabId, { groupId, groupTitle: title, groupColor: color }).catch(() => {}))
+            );
+          }));
+
+          // Discard background tabs so they load on demand (like native session restore)
+          await Promise.all(
+            createdTabIds.slice(1).filter(Boolean).map((id) => chrome.tabs.discard(id!).catch(() => {}))
+          );
+
           broadcastUpdate();
         } catch { /* ignore */ }
         sendResponse({ success: true });
@@ -1427,7 +1547,7 @@ export default defineBackground(() => {
             ? '\n\nWindows: ' + windows.map((w) => `[win:${w.windowId}] (${w.tabCount} tabs${w.activeTabTitle ? `, active: "${w.activeTabTitle}"` : ''})`).join(', ')
             : '';
 
-          const systemPrompt = `You are a browser tab manager AI. The user has these open browser tabs:\n${tabListString}${groupListString}${windowListString}\n\nRespond ONLY with a JSON object with this exact structure: {"message": "short friendly confirmation max 15 words", "actions": [...]}\n\nAvailable action types:\n- {"type":"group-tabs","tabIds":[number],"title":"string","color":"blue|cyan|green|yellow|orange|red|pink|purple|grey"} // groups EXISTING tabs\n- {"type":"open-urls-in-group","urls":["string"],"title":"string","color":"blue|cyan|green|yellow|orange|red|pink|purple|grey"} // opens NEW URLs and groups them\n- {"type":"close-tab","tabId":number}\n- {"type":"close-tabs","tabIds":[number]}\n- {"type":"close-by-domain","domain":"string","keepTabId":number|null} // closes all tabs from a domain; set keepTabId to spare one\n- {"type":"open-url","url":"string"} // opens a single new tab\n- {"type":"pin-tab","tabId":number,"pinned":boolean}\n- {"type":"mute-tab","tabId":number,"muted":boolean}\n- {"type":"bookmark-tab","tabId":number,"folder":"string (optional)"}\n- {"type":"duplicate-tab","tabId":number}\n- {"type":"switch-tab","tabId":number}\n- {"type":"move-to-new-window","tabId":number}\n- {"type":"reload-tab","tabId":number}\n- {"type":"ungroup-tabs","tabIds":[number]}\n- {"type":"rename-group","groupId":number,"title":"string (optional)","color":"blue|cyan|green|yellow|orange|red|pink|purple|grey (optional)"} // use exact groupId from the group list above\n- {"type":"split-view","tabId1":number,"tabId2":number}\n- {"type":"merge-windows"}\n- {"type":"focus-window","windowId":number} // bring a window to front; use exact windowId from the window list above\n- {"type":"discard-tabs","tabIds":[number]} // suspend/hibernate tabs to free memory without closing them\n- {"type":"reopen-last-closed"}\n- {"type":"create-workspace","name":"string"}\n\nIMPORTANT RULES:\n1. When user asks to open NEW URLs and group them, use open-urls-in-group (NOT open-url + group-tabs).\n2. Use group-tabs only to group tabs that already exist in the tab list above.\n3. Use create-workspace (NOT group-tabs) when user wants to save a workspace.\n4. Use discard-tabs (NOT close-tabs) when user asks to free memory, suspend, or hibernate tabs.\n5. Use rename-group with the exact groupId from the group list. Include title and/or color as needed.\n6. Use focus-window with the exact windowId from the window list.\n7. Use close-by-domain for "close all [site] tabs" requests.\n8. Use exact tabIds from the tab list. Add https:// to URLs if missing.\n9. Return empty actions array ONLY if the request is about existing tabs and nothing to do. NEVER return empty actions if user asks to open, find, navigate to, or search for something.\n\nURL CONSTRUCTION RULES (critical — must follow exactly):\n10. ALWAYS open something when the user asks to find/open/navigate/search. Never refuse by returning empty actions. URL-encode all queries: spaces→+, apostrophe→%27, &→%26, #→%23. Never include raw spaces in URLs.\n\nVIDEO & STREAMING:\n- YouTube video/search: https://www.youtube.com/results?search_query=query+here\n- YouTube channel (known handle): https://www.youtube.com/@Handle — e.g. MrBeast→@MrBeast, Veritasium→@veritasium, Linus Tech Tips→@LinusTechTips\n- YouTube channel (unknown handle): https://www.youtube.com/results?search_query=Channel+Name+channel\n- YouTube playlist search: https://www.youtube.com/results?search_query=query&sp=EgIQAw%3D%3D\n- Twitch streamer: https://www.twitch.tv/streamername (lowercase, no spaces)\n- Netflix search: https://www.netflix.com/search?q=show+name\n- Prime Video search: https://www.amazon.com/s?k=query&i=instant-video\n- Disney+ search: https://www.disneyplus.com/search/query\n- Crunchyroll search: https://www.crunchyroll.com/search?q=query\n\nMUSIC:\n- Spotify search (songs/artists/albums): https://open.spotify.com/search/query+here\n- Spotify specific artist (known): https://open.spotify.com/search/Artist+Name/artists\n- SoundCloud search: https://soundcloud.com/search?q=query\n- Apple Music search: https://music.apple.com/search?term=query\n\nLOCAL & MAPS:\n- ANY local business, restaurant, place, or "near me" / "nearby" / "in [city]" query: ALWAYS use Google Maps with ?q= format (NEVER use path-style maps/search/... — it 404s)\n  Format: https://www.google.com/maps/search/?q=query+words+here\n  Examples: "sushi near me" → https://www.google.com/maps/search/?q=sushi+near+me\n           "fine dining near University of Waterloo" → https://www.google.com/maps/search/?q=fine+dining+near+University+of+Waterloo\n           "Starbucks in Toronto" → https://www.google.com/maps/search/?q=Starbucks+Toronto\n- Directions: https://www.google.com/maps/dir/?api=1&origin=From&destination=To\n- Yelp local search: https://www.yelp.com/search?find_desc=query&find_loc=city\n\nSHOPPING:\n- Amazon product search: https://www.amazon.com/s?k=product+name\n- eBay search: https://www.ebay.com/sch/i.html?_nkw=query\n- Etsy search: https://www.etsy.com/search?q=query\n- Best Buy search: https://www.bestbuy.com/site/searchpage.jsp?st=query\n\nSOCIAL MEDIA:\n- Twitter/X profile (known username): https://x.com/username | search: https://x.com/search?q=query\n- Instagram profile (known handle): https://www.instagram.com/handle/ | search: https://www.instagram.com/explore/tags/query/\n- TikTok profile (known handle): https://www.tiktok.com/@handle | search: https://www.tiktok.com/search?q=query\n- LinkedIn person/company: https://www.linkedin.com/search/results/all/?keywords=name\n- Reddit subreddit: https://www.reddit.com/r/subredditname/ | search: https://www.reddit.com/search/?q=query\n\nFINANCE & STOCKS:\n- Stock price (ticker known): https://finance.yahoo.com/quote/TICKER — e.g. Apple→AAPL, Tesla→TSLA, Google→GOOGL\n- Crypto price: https://www.coingecko.com/en/search?query=coin+name — e.g. Bitcoin, Ethereum, Solana\n- General finance search: https://finance.yahoo.com/lookup?s=query\n\nNEWS & MEDIA:\n- Google News topic: https://news.google.com/search?q=topic\n- BBC search: https://www.bbc.com/search?q=topic\n- CNN search: https://www.cnn.com/search?q=topic\n- Reuters search: https://www.reuters.com/search/news?blob=topic\n- NYT search: https://www.nytimes.com/search?query=topic\n\nWEATHER:\n- Weather for any city: https://www.google.com/search?q=weather+in+City+Name\n- e.g. "weather in Tokyo" → https://www.google.com/search?q=weather+in+Tokyo\n\nSPORTS:\n- Live scores / schedule: https://www.google.com/search?q=sport+or+team+name+scores\n- ESPN team/player: https://www.espn.com/search/results?q=query\n- NBA: https://www.nba.com/games | NFL: https://www.nfl.com/scores/ | Premier League: https://www.premierleague.com/\n\nENTERTAINMENT:\n- Movie/show info: https://www.imdb.com/find?q=title+name\n- Rotten Tomatoes: https://www.rottentomatoes.com/search?search=query\n- Game on Steam: https://store.steampowered.com/search/?term=game+name\n- Metacritic: https://www.metacritic.com/search/query/\n\nTRAVEL:\n- Flights: https://www.google.com/flights?q=flights+from+Origin+to+Destination\n- Hotels: https://www.booking.com/search.html?ss=city+name\n- Airbnb: https://www.airbnb.com/s/City--Country/homes\n\nJOBS:\n- LinkedIn jobs: https://www.linkedin.com/jobs/search/?keywords=job+title&location=city\n- Indeed: https://www.indeed.com/jobs?q=job+title&l=location\n\nEVENTS & TICKETS:\n- Ticketmaster: https://www.ticketmaster.com/search?q=event+name\n- StubHub: https://www.stubhub.com/find/s/?q=event\n- Eventbrite: https://www.eventbrite.com/d/online/event+name/\n\nDEVELOPER / TECH:\n- GitHub repo (known): https://github.com/owner/repo | search: https://github.com/search?q=query\n- npm package: https://www.npmjs.com/package/name\n- PyPI package: https://pypi.org/project/name/\n- MDN docs: https://developer.mozilla.org/en-US/search?q=query\n- Stack Overflow: https://stackoverflow.com/search?q=query\n- Docker Hub: https://hub.docker.com/search?q=query\n- Official docs: react.dev, docs.python.org, vuejs.org, angular.io, docs.rs, go.dev/doc\n\nACADEMIC:\n- Google Scholar: https://scholar.google.com/scholar?q=topic\n- arXiv: https://arxiv.org/search/?query=topic&searchtype=all\n- PubMed: https://pubmed.ncbi.nlm.nih.gov/?term=query\n\nFOOD & RECIPES:\n- Allrecipes: https://www.allrecipes.com/search?q=recipe+name\n- Google recipe search: https://www.google.com/search?q=recipe+name+recipe\n\nPODCASTS:\n- Spotify podcast search: https://open.spotify.com/search/podcast+name/podcasts\n- Apple Podcasts: https://podcasts.apple.com/search?term=podcast+name\n\nIMAGES:\n- Google Images: https://www.google.com/search?q=query&tbm=isch\n- Unsplash: https://unsplash.com/s/photos/query\n\nWIKIPEDIA: https://en.wikipedia.org/wiki/Topic_Name (capitalize words, spaces→_)\n\nFALLBACK (last resort only — prefer platform-native search above): https://www.google.com/search?q=query\nOnly use Google search when none of the above categories apply AND you cannot determine a platform-native URL. Always prefer opening the right platform over generic Google.`;
+          const systemPrompt = `You are a browser tab manager AI. The user has these open browser tabs:\n${tabListString}${groupListString}${windowListString}\n\nRespond ONLY with a JSON object with this exact structure: {"message": "short friendly confirmation max 15 words", "actions": [...]}\n\nAvailable action types:\n- {"type":"group-tabs","tabIds":[number],"title":"string","color":"blue|cyan|green|yellow|orange|red|pink|purple|grey"} // groups EXISTING tabs\n- {"type":"open-urls-in-group","urls":["string"],"title":"string","color":"blue|cyan|green|yellow|orange|red|pink|purple|grey"} // opens NEW URLs and groups them\n- {"type":"close-tab","tabId":number}\n- {"type":"close-tabs","tabIds":[number]}\n- {"type":"close-by-domain","domain":"string","keepTabId":number|null} // closes all tabs from a domain; set keepTabId to spare one\n- {"type":"open-url","url":"string"} // opens a single new tab\n- {"type":"pin-tab","tabId":number,"pinned":boolean}\n- {"type":"mute-tab","tabId":number,"muted":boolean}\n- {"type":"bookmark-tab","tabId":number,"folder":"string (optional)"}\n- {"type":"duplicate-tab","tabId":number}\n- {"type":"switch-tab","tabId":number}\n- {"type":"move-to-new-window","tabId":number}\n- {"type":"reload-tab","tabId":number}\n- {"type":"ungroup-tabs","tabIds":[number]}\n- {"type":"rename-group","groupId":number,"title":"string (optional)","color":"blue|cyan|green|yellow|orange|red|pink|purple|grey (optional)"} // use exact groupId from the group list above\n- {"type":"split-view","tabId1":number,"tabId2":number}\n- {"type":"merge-windows"}\n- {"type":"focus-window","windowId":number} // bring a window to front; use exact windowId from the window list above\n- {"type":"discard-tabs","tabIds":[number]} // suspend/hibernate tabs to free memory without closing them\n- {"type":"reopen-last-closed"}\n- {"type":"create-workspace","name":"string"}\n\nIMPORTANT RULES:\n1. When user asks to open NEW URLs and group them, use open-urls-in-group (NOT open-url + group-tabs).\n2. Use group-tabs only to group tabs that already exist in the tab list above.\n3. Use create-workspace (NOT group-tabs) when user wants to save a workspace.\n4. Use discard-tabs (NOT close-tabs) when user asks to free memory, suspend, or hibernate tabs.\n5. Use rename-group with the exact groupId from the group list. Include title and/or color as needed.\n6. Use focus-window with the exact windowId from the window list.\n7. Use close-by-domain for "close all [site] tabs" requests.\n8. Use exact tabIds from the tab list. Add https:// to URLs if missing.\n9. Return empty actions array ONLY if the request is about existing tabs and nothing to do. NEVER return empty actions if user asks to open, find, navigate to, or search for something.\n10. ACTION ORDER IS CRITICAL — always sequence actions in this order: (1) close/remove actions first (close-tab, close-tabs, close-by-domain), (2) organize actions second (group-tabs, ungroup-tabs, rename-group, pin-tab, mute-tab, move-to-new-window, discard-tabs), (3) create-workspace LAST. Never put create-workspace before group-tabs — the workspace must capture the final organized state.\n11. For close-by-domain, use the root domain only (e.g. "google.com" closes google.com, mail.google.com, drive.google.com, docs.google.com etc). Never use subdomains as the domain value.\n\nURL CONSTRUCTION RULES (critical — must follow exactly):\n10. ALWAYS open something when the user asks to find/open/navigate/search. Never refuse by returning empty actions. URL-encode all queries: spaces→+, apostrophe→%27, &→%26, #→%23. Never include raw spaces in URLs.\n\nVIDEO & STREAMING:\n- YouTube video/search: https://www.youtube.com/results?search_query=query+here\n- YouTube channel (known handle): https://www.youtube.com/@Handle — e.g. MrBeast→@MrBeast, Veritasium→@veritasium, Linus Tech Tips→@LinusTechTips\n- YouTube channel (unknown handle): https://www.youtube.com/results?search_query=Channel+Name+channel\n- YouTube playlist search: https://www.youtube.com/results?search_query=query&sp=EgIQAw%3D%3D\n- Twitch streamer: https://www.twitch.tv/streamername (lowercase, no spaces)\n- Netflix search: https://www.netflix.com/search?q=show+name\n- Prime Video search: https://www.amazon.com/s?k=query&i=instant-video\n- Disney+ search: https://www.disneyplus.com/search/query\n- Crunchyroll search: https://www.crunchyroll.com/search?q=query\n\nMUSIC:\n- Spotify search (songs/artists/albums): https://open.spotify.com/search/query+here\n- Spotify specific artist (known): https://open.spotify.com/search/Artist+Name/artists\n- SoundCloud search: https://soundcloud.com/search?q=query\n- Apple Music search: https://music.apple.com/search?term=query\n\nLOCAL & MAPS:\n- ANY local business, restaurant, place, or "near me" / "nearby" / "in [city]" query: ALWAYS use Google Maps with ?q= format (NEVER use path-style maps/search/... — it 404s)\n  Format: https://www.google.com/maps/search/?q=query+words+here\n  Examples: "sushi near me" → https://www.google.com/maps/search/?q=sushi+near+me\n           "fine dining near University of Waterloo" → https://www.google.com/maps/search/?q=fine+dining+near+University+of+Waterloo\n           "Starbucks in Toronto" → https://www.google.com/maps/search/?q=Starbucks+Toronto\n- Directions: https://www.google.com/maps/dir/?api=1&origin=From&destination=To\n- Yelp local search: https://www.yelp.com/search?find_desc=query&find_loc=city\n\nSHOPPING:\n- Amazon product search: https://www.amazon.com/s?k=product+name\n- eBay search: https://www.ebay.com/sch/i.html?_nkw=query\n- Etsy search: https://www.etsy.com/search?q=query\n- Best Buy search: https://www.bestbuy.com/site/searchpage.jsp?st=query\n\nSOCIAL MEDIA:\n- Twitter/X profile (known username): https://x.com/username | search: https://x.com/search?q=query\n- Instagram profile (known handle): https://www.instagram.com/handle/ | search: https://www.instagram.com/explore/tags/query/\n- TikTok profile (known handle): https://www.tiktok.com/@handle | search: https://www.tiktok.com/search?q=query\n- LinkedIn person/company: https://www.linkedin.com/search/results/all/?keywords=name\n- Reddit subreddit: https://www.reddit.com/r/subredditname/ | search: https://www.reddit.com/search/?q=query\n\nFINANCE & STOCKS:\n- Stock price (ticker known): https://finance.yahoo.com/quote/TICKER — e.g. Apple→AAPL, Tesla→TSLA, Google→GOOGL\n- Crypto price: https://www.coingecko.com/en/search?query=coin+name — e.g. Bitcoin, Ethereum, Solana\n- General finance search: https://finance.yahoo.com/lookup?s=query\n\nNEWS & MEDIA:\n- Google News topic: https://news.google.com/search?q=topic\n- BBC search: https://www.bbc.com/search?q=topic\n- CNN search: https://www.cnn.com/search?q=topic\n- Reuters search: https://www.reuters.com/search/news?blob=topic\n- NYT search: https://www.nytimes.com/search?query=topic\n\nWEATHER:\n- Weather for any city: https://www.google.com/search?q=weather+in+City+Name\n- e.g. "weather in Tokyo" → https://www.google.com/search?q=weather+in+Tokyo\n\nSPORTS:\n- Live scores / schedule: https://www.google.com/search?q=sport+or+team+name+scores\n- ESPN team/player: https://www.espn.com/search/results?q=query\n- NBA: https://www.nba.com/games | NFL: https://www.nfl.com/scores/ | Premier League: https://www.premierleague.com/\n\nENTERTAINMENT:\n- Movie/show info: https://www.imdb.com/find?q=title+name\n- Rotten Tomatoes: https://www.rottentomatoes.com/search?search=query\n- Game on Steam: https://store.steampowered.com/search/?term=game+name\n- Metacritic: https://www.metacritic.com/search/query/\n\nTRAVEL:\n- Flights: https://www.google.com/flights?q=flights+from+Origin+to+Destination\n- Hotels: https://www.booking.com/search.html?ss=city+name\n- Airbnb: https://www.airbnb.com/s/City--Country/homes\n\nJOBS:\n- LinkedIn jobs: https://www.linkedin.com/jobs/search/?keywords=job+title&location=city\n- Indeed: https://www.indeed.com/jobs?q=job+title&l=location\n\nEVENTS & TICKETS:\n- Ticketmaster: https://www.ticketmaster.com/search?q=event+name\n- StubHub: https://www.stubhub.com/find/s/?q=event\n- Eventbrite: https://www.eventbrite.com/d/online/event+name/\n\nDEVELOPER / TECH:\n- GitHub repo (known): https://github.com/owner/repo | search: https://github.com/search?q=query\n- npm package: https://www.npmjs.com/package/name\n- PyPI package: https://pypi.org/project/name/\n- MDN docs: https://developer.mozilla.org/en-US/search?q=query\n- Stack Overflow: https://stackoverflow.com/search?q=query\n- Docker Hub: https://hub.docker.com/search?q=query\n- Official docs: react.dev, docs.python.org, vuejs.org, angular.io, docs.rs, go.dev/doc\n\nACADEMIC:\n- Google Scholar: https://scholar.google.com/scholar?q=topic\n- arXiv: https://arxiv.org/search/?query=topic&searchtype=all\n- PubMed: https://pubmed.ncbi.nlm.nih.gov/?term=query\n\nFOOD & RECIPES:\n- Allrecipes: https://www.allrecipes.com/search?q=recipe+name\n- Google recipe search: https://www.google.com/search?q=recipe+name+recipe\n\nPODCASTS:\n- Spotify podcast search: https://open.spotify.com/search/podcast+name/podcasts\n- Apple Podcasts: https://podcasts.apple.com/search?term=podcast+name\n\nIMAGES:\n- Google Images: https://www.google.com/search?q=query&tbm=isch\n- Unsplash: https://unsplash.com/s/photos/query\n\nWIKIPEDIA: https://en.wikipedia.org/wiki/Topic_Name (capitalize words, spaces→_)\n\nFALLBACK (last resort only — prefer platform-native search above): https://www.google.com/search?q=query\nOnly use Google search when none of the above categories apply AND you cannot determine a platform-native URL. Always prefer opening the right platform over generic Google.`;
 
           const requestBody = {
             model: 'llama-3.3-70b-versatile',
@@ -1437,7 +1557,7 @@ export default defineBackground(() => {
             ],
             response_format: { type: 'json_object' },
             temperature: 0.1,
-            max_tokens: 1024,
+            max_tokens: 2048,
           };
 
           const res = await fetch(
@@ -1453,17 +1573,14 @@ export default defineBackground(() => {
           );
 
           if (!res.ok) {
-            const errText = await res.text().catch(() => String(res.status));
-            sendResponse({ error: errText });
+            const errText = await res.text().catch(() => '');
+            const friendlyError = parseGroqError(errText, res.status);
+            sendResponse({ error: friendlyError });
             return;
           }
 
           const data = await res.json();
-          if (data.usage) {
-            groqSessionTokens.prompt += data.usage.prompt_tokens ?? 0;
-            groqSessionTokens.completion += data.usage.completion_tokens ?? 0;
-            groqSessionTokens.total += data.usage.total_tokens ?? 0;
-          }
+          if (data.usage) addGroqUsage(data.usage);
           const text = data?.choices?.[0]?.message?.content;
           if (!text) {
             sendResponse({ error: 'empty-response' });
@@ -1471,7 +1588,7 @@ export default defineBackground(() => {
           }
 
           const parsed = JSON.parse(text);
-          sendResponse({ success: true, message: parsed.message, actions: parsed.actions ?? [], usage: { ...groqSessionTokens } });
+          sendResponse({ success: true, message: parsed.message, actions: parsed.actions ?? [], usage: { ...groqUsageData } });
         } catch (err) {
           sendResponse({ error: String(err) });
         }
@@ -1479,13 +1596,92 @@ export default defineBackground(() => {
       return true;
     }
 
+    // AI group suggestions — calls Groq to suggest meaningful tab groups
+    if (message.type === 'get-group-suggestions') {
+      (async () => {
+        try {
+          const settings = await getSettings();
+          const apiKey = settings.groqApiKey;
+          if (!apiKey) {
+            sendResponse({ suggestions: [] });
+            return;
+          }
+          const tabList: Array<{ tabId: number; title: string; url: string }> = message.payload?.tabs ?? [];
+          if (tabList.length < 2) { sendResponse({ suggestions: [] }); return; }
+
+          // Use 1-based indices so the model references simple small numbers,
+          // then map back to actual tabIds after parsing.
+          const indexToTabId = tabList.map((t) => t.tabId);
+          const tabLines = tabList.map((t, i) => {
+            let loc = '';
+            try {
+              const u = new URL(t.url);
+              const domain = u.hostname.replace('www.', '');
+              const path = u.pathname.split('/').filter((s) => s.length > 2 && !/^\d+$/.test(s)).slice(0, 2).join('/');
+              loc = path ? `${domain}${path}` : domain;
+            } catch { loc = t.url; }
+            return `${i + 1}: "${t.title}" [${loc}]`;
+          }).join('\n');
+
+          const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            body: JSON.stringify({
+              model: 'llama-3.3-70b-versatile',
+              messages: [
+                {
+                  role: 'system',
+                  content: 'You organize browser tabs into meaningful groups. Output JSON only: {"groups": [{"label": "Name", "tabIds": [1, 3]}]}. Rules: tabIds are the 1-based numbers from the input list. Group names must be 1-3 words, specific (e.g. "React Docs", "Job Search", "AI Tools") — never generic ("Web", "Sites", "Tabs", "Group", "Browsing"). Only group tabs with a clear shared purpose; leave unrelated tabs ungrouped. Each group needs 2+ tabs. Max 5 groups.',
+                },
+                { role: 'user', content: tabLines },
+              ],
+              response_format: { type: 'json_object' },
+              temperature: 0.1,
+              max_tokens: 300,
+            }),
+          });
+
+          if (!res.ok) { sendResponse({ suggestions: [] }); return; }
+          const data = await res.json();
+          if (data.usage) addGroqUsage(data.usage);
+          const text = data?.choices?.[0]?.message?.content;
+          if (!text) { sendResponse({ suggestions: [] }); return; }
+          const parsed = JSON.parse(text);
+          const groups: Array<{ label: string; tabIds: number[] }> = parsed?.groups ?? [];
+          // Map 1-based indices back to actual tabIds
+          const suggestions = groups
+            .map((g) => ({
+              label: String(g.label ?? '').trim(),
+              tabIds: (g.tabIds ?? [])
+                .map(Number)
+                .filter((idx: number) => idx >= 1 && idx <= indexToTabId.length)
+                .map((idx: number) => indexToTabId[idx - 1]),
+            }))
+            .filter((g) => g.label.length > 0 && g.tabIds.length >= 2)
+            .slice(0, 6);
+          sendResponse({ suggestions });
+        } catch {
+          sendResponse({ suggestions: [] });
+        }
+      })();
+      return true;
+    }
+
+    if (message.type === 'reset-groq-usage') {
+      groqUsageData = { prompt: 0, completion: 0, total: 0, date: new Date().toISOString().slice(0, 10) };
+      chrome.storage.local.set({ groqUsageData });
+      sendResponse({ success: true });
+      return true;
+    }
+
     if (message.type === 'get-groq-usage') {
-      sendResponse({ usage: { ...groqSessionTokens } });
+      sendResponse({ usage: { ...groqUsageData } });
       return;
     }
   });
 
   // Update badge with tab count
+  loadGroqUsage();
   updateBadge();
   chrome.tabs.onCreated.addListener(updateBadge);
   chrome.tabs.onRemoved.addListener(updateBadge);
@@ -1524,6 +1720,8 @@ async function captureThumbnail(tabId: number, windowId: number, force = false) 
   // the overlay while it's still transitioning out.
   // force=true bypasses this check (used by captureAllWindowsActiveTabs before HUD opens).
   if (!force && (hudVisible || Date.now() - hudHideTime < 800)) return;
+  // Defense-in-depth: never capture the specific tab hosting the HUD, even with force=true.
+  if (hudTabId !== undefined && tabId === hudTabId) return;
   try {
     const tab = await chrome.tabs.get(tabId).catch(() => null);
     if (!tab || !canSendMessage(tab.url)) return;

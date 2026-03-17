@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { getTopDomains, type DomainStat } from '@/lib/api-client';
-import { getFrecencyMap } from '@/lib/frecency';
 import type { TabInfo } from '@/lib/types';
 
-interface LocalDomainStat { domain: string; visits: number; }
+interface LocalDomainStat { domain: string; }
 
 interface AnalyticsBarProps {
   tabs?: TabInfo[];
@@ -110,27 +109,27 @@ function findTabForDomain(domain: string, tabs: TabInfo[]): TabInfo | undefined 
 
 export function AnalyticsBar({ tabs = [], onSwitch }: AnalyticsBarProps) {
   const [domains, setDomains] = useState<DomainStat[]>([]);
-  const [localDomains, setLocalDomains] = useState<LocalDomainStat[]>([]);
 
   useEffect(() => {
     getTopDomains(3).then(setDomains).catch(() => {});
-    getFrecencyMap().then((map) => {
-      const counts = new Map<string, number>();
-      for (const [url, entry] of map) {
-        try {
-          if (isInternalUrl(url)) continue;
-          const d = new URL(url).hostname.replace('www.', '');
-          if (!d || BLOCKED_DOMAINS.has(d)) continue;
-          counts.set(d, (counts.get(d) ?? 0) + entry.visitCount);
-        } catch { /* ignore */ }
-      }
-      const sorted = [...counts.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([domain, visits]) => ({ domain, visits }));
-      setLocalDomains(sorted);
-    }).catch(() => {});
   }, []);
+
+  // Local: deduplicate open tabs by domain, sort by lastAccessed descending (most recently visited today)
+  const todayStart = new Date().setHours(0, 0, 0, 0);
+  const domainMap = new Map<string, number>(); // domain -> best lastAccessed
+  for (const tab of tabs) {
+    if (!tab.url || !tab.lastAccessed || tab.lastAccessed < todayStart) continue;
+    try {
+      if (isInternalUrl(tab.url)) continue;
+      const d = new URL(tab.url).hostname.replace('www.', '');
+      if (!d || BLOCKED_DOMAINS.has(d)) continue;
+      if ((domainMap.get(d) ?? 0) < tab.lastAccessed) domainMap.set(d, tab.lastAccessed);
+    } catch { /* ignore */ }
+  }
+  const localDomains = [...domainMap.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([domain]) => ({ domain }));
 
   // Filter out blocked domains from cloud results too
   const cleanDomains = domains.filter((d) => !BLOCKED_DOMAINS.has(d.domain));

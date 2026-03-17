@@ -49,11 +49,31 @@ export function App() {
   const handleSaveWorkspace = async () => {
     if (!workspaceName.trim()) return;
     const chromeTabs = await chrome.tabs.query({ currentWindow: true });
-    const tabData = chromeTabs.map((t) => ({ title: t.title || 'Untitled', url: t.url || '', faviconUrl: t.favIconUrl || '' }));
+    // Fetch group info for grouped tabs
+    const groupIds = [...new Set(chromeTabs.map((t) => t.groupId).filter((id) => id !== -1))];
+    const groupMap = new Map<number, { title: string; color: string }>();
+    for (const gid of groupIds) {
+      try {
+        const group = await chrome.tabGroups.get(gid);
+        groupMap.set(gid, { title: group.title ?? '', color: group.color });
+      } catch { /* ignore */ }
+    }
+    const tabData = chromeTabs
+      .filter((t) => t.url && !t.url.startsWith('chrome://') && !t.url.startsWith('chrome-extension://') && !t.url.startsWith('about:'))
+      .map((t) => {
+        const group = t.groupId !== -1 ? groupMap.get(t.groupId) : undefined;
+        return {
+          title: t.title || 'Untitled',
+          url: t.url || '',
+          faviconUrl: t.favIconUrl || '',
+          ...(group ? { groupTitle: group.title, groupColor: group.color } : {}),
+        };
+      });
     await saveWorkspace(workspaceName.trim(), tabData);
     setWorkspaceName('');
     setSaving(false);
     setWorkspaces(await getWorkspaces());
+    chrome.runtime.sendMessage({ type: 'workspace-updated' }).catch(() => {});
   };
 
   const handleRestoreWorkspace = async (id: string) => {
@@ -69,6 +89,7 @@ export function App() {
   const handleDeleteWorkspace = async (id: string) => {
     await deleteWorkspace(id);
     setWorkspaces(await getWorkspaces());
+    chrome.runtime.sendMessage({ type: 'workspace-updated' }).catch(() => {});
   };
 
   return (
@@ -76,9 +97,7 @@ export function App() {
       {/* Header */}
       <div className="px-4 py-3 border-b border-white/[0.08] flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-md bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
-            <span className="text-[10px] font-bold text-white">T</span>
-          </div>
+          <img src={chrome.runtime.getURL('icon-32.png')} alt="" className="w-5 h-5 rounded-md" />
           <div>
             <h1 className="text-sm font-semibold leading-tight">tab.flow</h1>
             <p className="text-[10px] text-white/35 leading-tight">

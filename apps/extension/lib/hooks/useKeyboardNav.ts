@@ -53,18 +53,22 @@ export function useKeyboardNav(
 
       switch (e.key) {
         case 'ArrowRight':
+          if (isInput) break; // let the input handle cursor movement
           e.preventDefault();
           s.setSelectedIndex((i) => Math.min(i + 1, len - 1));
           break;
         case 'ArrowLeft':
+          if (isInput) break;
           e.preventDefault();
           s.setSelectedIndex((i) => Math.max(i - 1, 0));
           break;
         case 'ArrowDown':
+          if (isInput) break;
           e.preventDefault();
           s.setSelectedIndex((i) => Math.min(i + cols, len - 1));
           break;
         case 'ArrowUp':
+          if (isInput) break;
           e.preventDefault();
           s.setSelectedIndex((i) => Math.max(i - cols, 0));
           break;

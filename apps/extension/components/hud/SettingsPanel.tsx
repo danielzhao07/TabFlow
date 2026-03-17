@@ -10,6 +10,7 @@ interface SettingsPanelProps {
   settings: TabFlowSettings | null;
   onSettingChange: (patch: Partial<TabFlowSettings>) => void;
   onClose: () => void;
+  groqUsage?: { prompt: number; completion: number; total: number; date?: string } | null;
 }
 
 function Toggle({
@@ -82,6 +83,7 @@ export function SettingsPanel({
   settings,
   onSettingChange,
   onClose,
+  groqUsage,
 }: SettingsPanelProps) {
   return (
     <>
@@ -360,6 +362,29 @@ export function SettingsPanel({
                   </a>
                   {' '}· Type @ to chat with flow
                 </span>
+                {groqUsage && groqUsage.total > 0 && (() => {
+                  const DAILY_CAP = 50_000;
+                  const pct = Math.min(groqUsage.total / DAILY_CAP, 1);
+                  const color = pct < 0.5 ? 'rgba(100,220,160,0.8)' : pct < 0.8 ? 'rgba(255,200,80,0.8)' : 'rgba(255,100,80,0.8)';
+                  return (
+                    <div className="mt-1.5 flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.30)' }}>
+                          {groqUsage.date ? `Since ${groqUsage.date}` : 'Today'} · resets daily
+                        </span>
+                        <span className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                          {groqUsage.total.toLocaleString()} / 100k tokens
+                        </span>
+                      </div>
+                      <div className="rounded-full overflow-hidden" style={{ height: 3, background: 'rgba(255,255,255,0.07)' }}>
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${pct * 100}%`, background: color }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>

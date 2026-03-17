@@ -33,7 +33,7 @@ export default defineContentScript({
     const ui = await createShadowRootUi(ctx, {
       name: 'tabflow-hud',
       position: 'overlay',
-      anchor: 'body',
+      anchor: 'html',
       onMount: (container) => {
         const wrapper = document.createElement('div');
         wrapper.id = 'tabflow-root';

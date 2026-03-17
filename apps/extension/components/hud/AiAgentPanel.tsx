@@ -64,23 +64,6 @@ export function AiAgentPanel({ message, actions, completedCount, onDismiss, usag
         </div>
       )}
 
-      {usage && usage.total > 0 && (
-        <div className="flex items-center gap-1 mb-1">
-          <span
-            className="text-[10px] leading-none"
-            style={{
-              padding: '2px 6px',
-              borderRadius: 4,
-              background: 'rgba(160,140,255,0.08)',
-              color: 'rgba(180,165,255,0.5)',
-              border: '1px solid rgba(160,140,255,0.1)',
-            }}
-          >
-            {'\u26A1'} {usage.total.toLocaleString()} tokens
-          </span>
-        </div>
-      )}
-
       {/* Header: message + dismiss */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 flex-1 min-w-0">

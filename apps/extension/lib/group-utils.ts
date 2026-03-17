@@ -560,10 +560,9 @@ interface CandidateGroup {
 }
 
 /**
- * Suggests tab groups using parallel candidate generation + scoring + set-cover selection.
- * Generates domain, academic, bigram, unigram, and brand candidates in parallel,
- * then selects the best non-overlapping suggestions. At most 6 suggestions returned.
- * @param descriptions Optional map of tabId → meta description text for richer context
+ * Suggests tab groups using parallel candidate generation + scoring + overlap selection.
+ * Generates domain, semantic, academic, brand, bigram, unigram, and URL path candidates,
+ * then selects the best non-redundant suggestions. At most 8 suggestions returned.
  */
 export function getSmartSuggestions(tabs: TabInfo[], existingTitles: Set<string>, descriptions?: Record<number, string>): SmartSuggestion[] {
   if (tabs.length < 2) return [];
@@ -587,17 +586,14 @@ export function getSmartSuggestions(tabs: TabInfo[], existingTitles: Set<string>
   }
   for (const [domain, domTabs] of domainMap) {
     if (domTabs.length < 2) continue;
-    // Skip search engine domains — grouping unrelated searches by engine is unhelpful
     if (isSearchEngineDomain(domain)) continue;
     const baseName = getDomainCategory(domain);
     const isKnownBrand = !!DOMAIN_NAME_HINTS[domain] ||
       (domain.split('.').length > 2 && !!DOMAIN_NAME_HINTS[domain.split('.').slice(-2).join('.')]);
-    // Try to qualify domain name with content type (e.g. "GitHub Issues" instead of "GitHub")
     const contentTypes = domTabs.map((t) => detectContentType(t.url)).filter(Boolean) as string[];
     const contentCounts = new Map<string, number>();
     for (const ct of contentTypes) contentCounts.set(ct, (contentCounts.get(ct) ?? 0) + 1);
     const dominantContent = [...contentCounts.entries()].sort((a, b) => b[1] - a[1])[0];
-    // Use qualified name if most tabs share the same content type
     const label = dominantContent && dominantContent[1] >= domTabs.length * 0.5
       ? `${baseName} ${dominantContent[0]}`
       : baseName;
@@ -609,23 +605,17 @@ export function getSmartSuggestions(tabs: TabInfo[], existingTitles: Set<string>
   }
 
   // ── 1b. Cross-domain semantic category candidates ─────────────────────
-  // Group tabs from different domains that share a semantic purpose (AI, Dev, Social, etc.)
   const categoryMap = new Map<string, { label: string; tabs: TabInfo[] }>();
   for (const tab of tabs) {
     const d = getDomain(tab.url);
     const cat = getDomainSemanticCategory(d);
     if (!cat) continue;
     let entry = categoryMap.get(cat.category);
-    if (!entry) {
-      entry = { label: cat.label, tabs: [] };
-      categoryMap.set(cat.category, entry);
-    }
+    if (!entry) { entry = { label: cat.label, tabs: [] }; categoryMap.set(cat.category, entry); }
     entry.tabs.push(tab);
   }
   for (const [, { label, tabs: catTabs }] of categoryMap) {
     if (catTabs.length < 2) continue;
-    // Only useful as cross-domain: skip if all tabs are from the same domain
-    // (the domain candidate above already handles single-domain groups)
     const domains = new Set(catTabs.map((t) => getDomain(t.url)));
     if (domains.size < 2) continue;
     candidates.push({
@@ -642,7 +632,6 @@ export function getSmartSuggestions(tabs: TabInfo[], existingTitles: Set<string>
     if (codes.length > 0) {
       courseTabs.push(tab);
     } else if (isEducationDomain(getDomain(tab.url))) {
-      // Also include LMS tabs that may not have explicit course codes in titles
       courseTabs.push(tab);
     }
   }
@@ -655,7 +644,6 @@ export function getSmartSuggestions(tabs: TabInfo[], existingTitles: Set<string>
   }
 
   // ── 3. Brand suffix candidates ─────────────────────────────────────────
-  // Group tabs by the brand name that cleanTitle() would strip
   const brandMap = new Map<string, TabInfo[]>();
   for (const tab of tabs) {
     const brand = extractBrandSuffix(tab.title);
@@ -674,11 +662,10 @@ export function getSmartSuggestions(tabs: TabInfo[], existingTitles: Set<string>
     });
   }
 
-  // ── 4. Bigram candidates (most specific keyword clusters) ──────────────
+  // ── 4. Bigram candidates ──────────────────────────────────────────────
   const bigramMap = new Map<string, Set<number>>();
   for (const tab of tabs) {
     const text = textForTab(tab);
-    // Include brand suffix as extra keyword signal
     const brand = extractBrandSuffix(tab.title);
     const fullText = brand ? `${text} ${brand}` : text;
     for (const bg of new Set(titleBigrams(fullText))) {
@@ -689,11 +676,7 @@ export function getSmartSuggestions(tabs: TabInfo[], existingTitles: Set<string>
   }
   for (const [bigram, ids] of bigramMap) {
     if (ids.size < 2) continue;
-    candidates.push({
-      label: capitalize(bigram),
-      tabIds: ids,
-      score: ids.size * 1.5,
-    });
+    candidates.push({ label: capitalize(bigram), tabIds: ids, score: ids.size * 1.5 });
   }
 
   // ── 5. Unigram candidates ──────────────────────────────────────────────
@@ -710,11 +693,7 @@ export function getSmartSuggestions(tabs: TabInfo[], existingTitles: Set<string>
   }
   for (const [word, ids] of wordMap) {
     if (ids.size < 2) continue;
-    candidates.push({
-      label: capitalize(word),
-      tabIds: ids,
-      score: ids.size * 1.0,
-    });
+    candidates.push({ label: capitalize(word), tabIds: ids, score: ids.size * 1.0 });
   }
 
   // ── 6. URL path segment candidates ─────────────────────────────────────
@@ -736,19 +715,10 @@ export function getSmartSuggestions(tabs: TabInfo[], existingTitles: Set<string>
   }
   for (const [seg, ids] of pathMap) {
     if (ids.size < 2) continue;
-    candidates.push({
-      label: capitalize(seg),
-      tabIds: ids,
-      score: ids.size * 1.2,
-    });
+    candidates.push({ label: capitalize(seg), tabIds: ids, score: ids.size * 1.2 });
   }
 
   // ── Overlap-based selection ───────────────────────────────────────────
-  // Sort by score descending. Instead of exclusive claiming (which starves later
-  // candidates when the pool is large), accept every candidate unless it heavily
-  // overlaps with an already-accepted suggestion. This ensures obvious groups
-  // (domain, brand, semantic) are always surfaced even when generic text candidates
-  // also match the same tabs.
   candidates.sort((a, b) => b.score - a.score);
 
   const results: SmartSuggestion[] = [];
@@ -772,22 +742,16 @@ export function getSmartSuggestions(tabs: TabInfo[], existingTitles: Set<string>
     }
     if (matchesExisting) continue;
 
-    // Skip if label is similar to an already-accepted suggestion:
-    // - exact match, shared keyword, or synonym match
-    // e.g. "Python" & "Python Docs", "YouTube" & "Videos", "Claude" & "AI Chats"
+    // Skip if label is similar to an already-accepted suggestion
     const candFP = labelFingerprint(candidate.label);
     const isSimilarLabel = results.some((r) => {
       const rFP = labelFingerprint(r.label);
-      // Any shared canonical word → too similar
-      for (const w of candFP) {
-        if (rFP.has(w)) return true;
-      }
+      for (const w of candFP) { if (rFP.has(w)) return true; }
       return false;
     });
     if (isSimilarLabel) continue;
 
-    // Skip if >70% of this candidate's tabs are already covered by a single
-    // existing suggestion (it's essentially a subset / duplicate of that group)
+    // Skip if >70% of this candidate's tabs are already covered by a single existing suggestion
     const isRedundant = results.some((r) => {
       const rSet = new Set(r.tabIds);
       const overlap = tabIdArray.filter((id) => rSet.has(id)).length;

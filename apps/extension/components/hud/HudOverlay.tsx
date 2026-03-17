@@ -18,7 +18,7 @@ import { SettingsPanel } from './SettingsPanel';
 import { ContextMenu, type ContextMenuItem } from './ContextMenu';
 import { checkHealth } from '@/lib/api-client';
 import { getStoredTokens, type TokenSet } from '@/lib/auth';
-import { markReactReady } from '@/lib/hud-bridge';
+import { markReactReady, hideLoadingOverlay } from '@/lib/hud-bridge';
 import { AiAgentPanel, AiThinkingBar } from './AiAgentPanel';
 import type { AgentResult, AgentAction } from '@/lib/agent';
 import type { TabInfo } from '@/lib/types';
@@ -36,7 +36,7 @@ export function HudOverlay() {
   const [aiPending, setAiPending] = useState(false);
   const [agentResult, setAgentResult] = useState<AgentResult | null>(null);
   const [completedCount, setCompletedCount] = useState(0);
-  const [groqUsage, setGroqUsage] = useState<{ prompt: number; completion: number; total: number } | null>(null);
+  const [groqUsage, setGroqUsage] = useState<{ prompt: number; completion: number; total: number; date?: string } | null>(null);
   const [wsRefreshKey, setWsRefreshKey] = useState(0);
   const promptHistoryRef = useRef<string[]>([]);
   const aiExecutingRef = useRef(false);
@@ -88,6 +88,8 @@ export function HudOverlay() {
     // Helper: everything that needs to happen when the HUD opens.
     // Critical path (tabs + data) fires first; thumbnails, health, auth are deferred.
     const openHud = () => {
+      // Clean up any lingering loading overlay (e.g. injected by background before React mounted)
+      hideLoadingOverlay();
       // Critical: show tabs ASAP
       s.fetchTabs();
       loadHudData(s);
@@ -448,6 +450,10 @@ export function HudOverlay() {
   const handleSettingChange = useCallback(async (patch: Partial<TabFlowSettings>) => {
     const updated = await saveSettings(patch);
     s.setSettings(updated);
+    if ('groqApiKey' in patch) {
+      chrome.runtime.sendMessage({ type: 'reset-groq-usage' }).catch(() => {});
+      setGroqUsage(null);
+    }
   }, [s]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!s.visible) return null;
@@ -491,7 +497,10 @@ export function HudOverlay() {
         {/* Top bar: logo + tab count + analytics (left) · gear (right) — in flow so grid doesn't overlap */}
         <div className="shrink-0 flex items-center justify-between px-4 pt-3 pb-1" style={{ zIndex: 2147483646 }}>
           <div className="flex items-center gap-3">
-            <span className="text-[11px] font-semibold text-white/40 tracking-wider uppercase">tab.flow</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); window.open('https://www.tabflow.tech', '_blank'); }}
+              className="text-[11px] font-semibold text-white/40 tracking-wider uppercase hover:text-white/70 transition-colors cursor-pointer"
+            >tab.flow</button>
             <span
               className="text-[10px] text-white/20 px-1.5 py-0.5 rounded-md"
               style={{ background: 'rgba(255,255,255,0.06)' }}
@@ -501,7 +510,15 @@ export function HudOverlay() {
             {!s.settings?.hideTodayTabs && <AnalyticsBar tabs={s.tabs} onSwitch={s.hide} />}
           </div>
           <button
-            onClick={(e) => { e.stopPropagation(); setShowSettings((p) => !p); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!showSettings) {
+                chrome.runtime.sendMessage({ type: 'get-groq-usage' }).then((res) => {
+                  if (res?.usage) setGroqUsage(res.usage);
+                }).catch(() => {});
+              }
+              setShowSettings((p) => !p);
+            }}
             className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors"
             style={{
               background: showSettings ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)',
@@ -548,6 +565,7 @@ export function HudOverlay() {
             settings={s.settings}
             onSettingChange={handleSettingChange}
             onClose={() => setShowSettings(false)}
+            groqUsage={groqUsage}
           />
         )}
 
